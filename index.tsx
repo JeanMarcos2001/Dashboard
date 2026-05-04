@@ -16,7 +16,7 @@ import {
   Plus,
   Trash2,
   ChevronRight,
-  LayoutDashboard,
+  Home,
   Phone,
   Info,
   X,
@@ -32,14 +32,17 @@ import {
   Save,
   PhoneCall,
   User,
-  CalendarDays
+  CalendarDays,
+  Sparkles,
+  CheckCircle,
+  ImageIcon
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado } from './types';
 
 // Configuración de Supabase proporcionada por el usuario
-const SUPABASE_URL = 'https://fmbtcgilsicvvsltmzms.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYnRjZ2lsc2ljdnZzbHRtem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMTkxODIsImV4cCI6MjA4MTU5NTE4Mn0.pd3CmAATwdtP4beaRWM6ufWyrdu8ywZ4JPAnsf7DX6c';
+const SUPABASE_URL = 'https://jtrugvxgztnxbhwjtiou.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0cnVndnhnenRueGJod2p0aW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDQxMTksImV4cCI6MjA4NzcyMDExOX0.Kw-SMk8ABVNfFEeYoN8oDgbpDv7Uk_cDN23IccH7zoM';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- Components Reutilizables ---
@@ -107,14 +110,60 @@ const StatusBadge: React.FC<{ status: AppointmentStatus }> = ({ status }) => {
   );
 };
 
+const ConfirmAlert: React.FC<{ config: any; onClose: () => void }> = ({ config, onClose }) => {
+  if (!config?.isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white/80 backdrop-blur-xl rounded-[20px] w-full max-w-[270px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-white/50">
+        <div className="p-5 pt-6 text-center">
+          <h3 className="text-[17px] font-bold text-slate-900 mb-1 leading-snug">{config.title}</h3>
+          <p className="text-[13px] text-slate-600 leading-tight px-1 font-medium">{config.message}</p>
+        </div>
+        <div className="flex border-t border-slate-200/60 mt-1">
+          <button 
+            onClick={() => { config.onCancel?.(); onClose(); }} 
+            className="flex-1 py-3 text-[17px] text-blue-500 hover:bg-slate-100/50 transition-colors font-medium"
+          >
+            {config.cancelText || 'Cancelar'}
+          </button>
+          <div className="w-[1px] bg-slate-200/60"></div>
+          <button 
+            onClick={() => { config.onConfirm(); onClose(); }} 
+            className={`flex-1 py-3 text-[17px] transition-colors font-semibold ${config.isDestructive ? 'text-rose-500 hover:bg-rose-50/50' : 'text-blue-500 hover:bg-slate-100/50'}`}
+          >
+            {config.confirmText || 'Aceptar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- App Principal ---
 
+// --- Tipos locales para Historias ---
+interface ColorCorporativo { id: number; nombre: string; clase_css: string; hex: string; activo: boolean; }
+interface Historia { id: number; nombre_alumno: string; programa: string; narracion: string; palabras_por_min: string; foto_path: string | null; foto_position: string | null; foto_scale: number | null; id_color: number | null; activo: boolean; orden: number; created_at: string; }
+
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias'>('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [filiales, setFiliales] = useState<Filial[]>([]);
   const [apoderados, setApoderados] = useState<Apoderado[]>([]);
+  const [historias, setHistorias] = useState<Historia[]>([]);
+  const [coloresCorporativos, setColoresCorporativos] = useState<ColorCorporativo[]>([]);
+  const [isHistoriaModalOpen, setIsHistoriaModalOpen] = useState(false);
+  const [editingHistoria, setEditingHistoria] = useState<Historia | null>(null);
+  const [historiaFotoPreview, setHistoriaFotoPreview] = useState<string | null>(null);
+  const [historiaFotoFile, setHistoriaFotoFile] = useState<File | null>(null);
+  const [historiaColorSeleccionado, setHistoriaColorSeleccionado] = useState<number | null>(null);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  // Adjuster state
+  const [isAjusteOpen, setIsAjusteOpen] = useState(false);
+  const [ajustePosX, setAjustePosX] = useState(50);
+  const [ajustePosY, setAjustePosY] = useState(50);
+  const [ajusteScale, setAjusteScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -147,6 +196,18 @@ const App: React.FC = () => {
   const [detailsAppointment, setDetailsAppointment] = useState<Appointment | null>(null);
   const [isReprogrammingExpanded, setIsReprogrammingExpanded] = useState(false);
 
+  // Alert State
+  const [alertConfig, setAlertConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
   // Fetch inicial de datos
   useEffect(() => {
     fetchAllData();
@@ -157,20 +218,29 @@ const App: React.FC = () => {
     else setRefreshing(true);
 
     try {
-      const [alRes, filRes, appRes, apoRes] = await Promise.all([
-        supabase.from('alumnos').select('*').order('created_at', { ascending: false }),
+      const [alRes, filRes, appRes, apoRes, histRes, colorRes] = await Promise.all([
+        supabase.from('alumnos').select('*').order('creado_en', { ascending: false }),
         supabase.from('filiales').select('*').order('nombre', { ascending: true }),
         supabase.from('citas').select(`
           *,
-          alumnos!fk_citas_alumnos (nombre_completo),
-          filiales!fk_citas_filiales (nombre)
-        `).order('created_at', { ascending: false }),
-        supabase.from('apoderados').select('*').order('created_at', { ascending: false })
+          alumnos!citas_id_alumno_fkey (nombre_completo),
+          filiales!citas_id_filial_fkey (nombre)
+        `).order('creado_en', { ascending: false }),
+        supabase.from('apoderados').select('*').order('creado_en', { ascending: false }),
+        supabase.from('historias_transformacion').select('*').order('orden', { ascending: true }),
+        supabase.from('colores_corporativos').select('*').eq('activo', true).order('nombre', { ascending: true })
       ]);
+
+      if (alRes.error) console.error('[FETCH] Error alumnos:', alRes.error.message);
+      if (filRes.error) console.error('[FETCH] Error filiales:', filRes.error.message);
+      if (appRes.error) console.error('[FETCH] Error citas:', appRes.error.message);
+      if (apoRes.error) console.error('[FETCH] Error apoderados:', apoRes.error.message);
 
       if (alRes.data) setAlumnos(alRes.data);
       if (filRes.data) setFiliales(filRes.data);
       if (apoRes.data) setApoderados(apoRes.data);
+      if (histRes.data) setHistorias(histRes.data);
+      if (colorRes.data) setColoresCorporativos(colorRes.data);
       if (appRes.data) {
         const transformedApps = appRes.data.map((a: any) => {
           // Manejo robusto: Supabase puede devolver un objeto o un array si la relación es 1:N (aunque sea FK)
@@ -244,6 +314,7 @@ const App: React.FC = () => {
       id_filial: Number(newApp.id_filial),
       fecha_cita: newApp.fecha_cita,
       hora_cita: newApp.hora_cita,
+      tipo_persona: newApp.tipo_persona || 'dependiente',
       estado: AppointmentStatus.PENDING
     };
 
@@ -252,8 +323,8 @@ const App: React.FC = () => {
       .insert([payload])
       .select(`
         *,
-        alumnos!fk_citas_alumnos (nombre_completo),
-        filiales!fk_citas_filiales (nombre)
+        alumnos!citas_id_alumno_fkey (nombre_completo),
+        filiales!citas_id_filial_fkey (nombre)
       `)
       .single();
 
@@ -273,11 +344,12 @@ const App: React.FC = () => {
   // --- Handlers de Alumnos ---
 
   const handleAddAlumno = async (newAl: any) => {
-    const payload = {
+    const esDependiente = newAl.tipo_alumno === 'dependiente';
+    const payload: any = {
       nombre_completo: newAl.nombre_completo,
       edad: Number(newAl.edad),
-      telefono: newAl.telefono,
-      id_apoderado: Number(newAl.id_apoderado)
+      telefono: esDependiente ? '' : newAl.telefono,
+      id_apoderado: esDependiente ? Number(newAl.id_apoderado) : null
     };
     const { data, error } = await supabase.from('alumnos').insert([payload]).select().single();
     if (!error && data) {
@@ -343,30 +415,55 @@ const App: React.FC = () => {
     };
 
     if (editingItem) {
-      const { data: updated, error } = await supabase.from('filiales').update(payload).eq('id', editingItem.id).select().single();
-      if (!error && updated) {
-        setFiliales(prev => prev.map(f => f.id === updated.id ? updated : f));
-        setEditingItem(null);
-      } else {
-        alert("Error al actualizar filial: " + error?.message);
-      }
+      setAlertConfig({
+        isOpen: true,
+        title: 'Guardar Edición',
+        message: `¿Guardar los cambios en "${data.nombre}"?`,
+        confirmText: 'Guardar',
+        onConfirm: async () => {
+          const { data: updated, error } = await supabase.from('filiales').update(payload).eq('id', editingItem.id).select().single();
+          if (!error && updated) {
+            setFiliales(prev => prev.map(f => f.id === updated.id ? updated : f));
+            setEditingItem(null);
+            setIsModalOpen(false);
+          } else {
+            alert("Error al actualizar filial: " + error?.message);
+          }
+        }
+      });
     } else {
       const { data: created, error } = await supabase.from('filiales').insert([payload]).select().single();
       if (!error && created) {
         setFiliales([created, ...filiales]);
+        setIsModalOpen(false);
       } else {
         alert("Error al crear filial: " + error?.message);
       }
     }
-    setIsModalOpen(false);
   };
 
 
 
   const toggleFilialStatus = async (id: number, currentStatus: boolean) => {
-    const { error } = await supabase.from('filiales').update({ activo: !currentStatus }).eq('id', id);
-    if (!error) {
-      setFiliales(prev => prev.map(f => f.id === id ? { ...f, activo: !currentStatus } : f));
+    if (currentStatus) { // Va a desactivar
+      setAlertConfig({
+        isOpen: true,
+        title: 'Desactivar Filial',
+        message: '¿Estás seguro de que deseas desactivar esta filial?',
+        confirmText: 'Desactivar',
+        isDestructive: true,
+        onConfirm: async () => {
+          const { error } = await supabase.from('filiales').update({ activo: !currentStatus }).eq('id', id);
+          if (!error) {
+            setFiliales(prev => prev.map(f => f.id === id ? { ...f, activo: !currentStatus } : f));
+          }
+        }
+      });
+    } else {
+      const { error } = await supabase.from('filiales').update({ activo: !currentStatus }).eq('id', id);
+      if (!error) {
+        setFiliales(prev => prev.map(f => f.id === id ? { ...f, activo: !currentStatus } : f));
+      }
     }
   };
 
@@ -461,9 +558,9 @@ const App: React.FC = () => {
   const renderDashboard = () => (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard title="Total Citas" value={stats.totalAppointments} icon={<Calendar className="text-blue-500" />} trend="+12%" color="blue" />
-        <StatCard title="Verificadas" value={stats.verifiedCount} icon={<CheckCircle2 className="text-emerald-500" />} trend="+5%" color="emerald" />
-        <StatCard title="Pendientes" value={stats.pendingCount} icon={<Clock className="text-amber-500" />} trend="-2%" color="amber" />
+        <StatCard title="Total Citas" value={stats.totalAppointments} icon={<Calendar className="text-blue-500" />} trend="Histórico" color="blue" />
+        <StatCard title="Verificadas" value={stats.verifiedCount} icon={<CheckCircle2 className="text-emerald-500" />} trend={`${((stats.verifiedCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="emerald" />
+        <StatCard title="Pendientes" value={stats.pendingCount} icon={<Clock className="text-amber-500" />} trend={`${((stats.pendingCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="amber" />
         <StatCard title="Conversión" value={`${stats.conversionRate.toFixed(1)}%`} icon={<ArrowUpRight className="text-purple-500" />} trend="Meta: 80%" color="purple" />
       </div>
 
@@ -805,10 +902,19 @@ const App: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-slate-600">{al.edad} años</td>
-                  <td className="px-6 py-4 text-slate-600 flex items-center gap-2 font-medium">
-                    <Phone size={14} className="text-slate-400" /> {al.telefono}
+                  <td className="px-6 py-4 text-slate-600 font-medium">
+                    {al.id_apoderado && !al.telefono ? (
+                      <span className="text-slate-300 font-bold">—</span>
+                    ) : al.telefono ? (
+                      <div className="flex items-center gap-2">
+                        <Phone size={14} className="text-slate-400" />
+                        {al.telefono}
+                      </div>
+                    ) : (
+                      <span className="text-slate-300 font-bold">—</span>
+                    )}
                   </td>
-                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{new Date(al.created_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{new Date(al.creado_en).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-right">
                     <button onClick={() => handleDeleteAlumno(al.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
                   </td>
@@ -1046,7 +1152,7 @@ const App: React.FC = () => {
                   <td className="px-6 py-4 text-slate-600 flex items-center gap-2 font-medium">
                     <Phone size={14} className="text-slate-400" /> {ap.telefono}
                   </td>
-                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{new Date(ap.created_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{new Date(ap.creado_en).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-right">
                     <button onClick={() => handleDeleteApoderado(ap.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
                   </td>
@@ -1201,38 +1307,52 @@ const App: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-            {/* Información del Estudiante y Apoderado */}
+            {/* Información del Contacto según tipo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-2 mb-3 text-slate-400 font-black text-[10px] uppercase tracking-widest">
                   <User size={14} /> Datos del Alumno
                 </div>
                 <p className="text-lg font-bold text-slate-800">{detailsAppointment.alumno_nombre}</p>
-                <div className="mt-2 flex items-center gap-2 text-xl font-black text-slate-700">
-                  <Phone size={18} className="text-emerald-500" />
-                  {alumnoDetalle?.telefono || "Sin teléfono"}
-                </div>
+                {detailsAppointment.tipo_persona === 'independiente' ? (
+                  <div className="mt-2 flex items-center gap-2 text-xl font-black text-slate-700">
+                    <Phone size={18} className="text-emerald-500" />
+                    {alumnoDetalle?.telefono || 'Sin teléfono'}
+                  </div>
+                ) : (
+                  <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-bold uppercase tracking-widest">
+                    <Users size={13} className="text-blue-400" /> Contacto vía apoderado
+                  </div>
+                )}
                 {alumnoDetalle && (
                   <p className="text-xs text-slate-400 mt-1">Edad: {alumnoDetalle.edad} años</p>
                 )}
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                <div className="flex items-center gap-2 mb-3 text-blue-400 font-black text-[10px] uppercase tracking-widest">
-                  <Users size={14} /> Datos del Apoderado
+              {detailsAppointment.tipo_persona !== 'independiente' ? (
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                  <div className="flex items-center gap-2 mb-3 text-blue-400 font-black text-[10px] uppercase tracking-widest">
+                    <Users size={14} /> Datos del Apoderado
+                  </div>
+                  {apoderadoDetalle ? (
+                    <>
+                      <p className="text-lg font-bold text-slate-800">{apoderadoDetalle.nombre_completo}</p>
+                      <div className="mt-2 flex items-center gap-2 text-xl font-black text-slate-700">
+                        <PhoneCall size={18} className="text-blue-500" />
+                        {apoderadoDetalle.telefono}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">Información no disponible</p>
+                  )}
                 </div>
-                {apoderadoDetalle ? (
-                  <>
-                    <p className="text-lg font-bold text-slate-800">{apoderadoDetalle.nombre_completo}</p>
-                    <div className="mt-2 flex items-center gap-2 text-xl font-black text-slate-700">
-                      <PhoneCall size={18} className="text-blue-500" />
-                      {apoderadoDetalle.telefono}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-slate-400 italic">Información no disponible</p>
-                )}
-              </div>
+              ) : (
+                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col justify-center items-center text-center">
+                  <User size={28} className="text-emerald-400 mb-2" />
+                  <p className="text-sm font-bold text-emerald-700">Alumno Independiente</p>
+                  <p className="text-xs text-slate-400 mt-1">Sin apoderado asignado</p>
+                </div>
+              )}
             </div>
 
             {/* Fecha y Hora */}
@@ -1353,6 +1473,364 @@ const App: React.FC = () => {
   };
 
 
+  // --- Handlers de Historias ---
+
+  const getFotoUrl = (foto_path: string | null): string | null =>
+    foto_path ? SUPABASE_URL + '/storage/v1/object/public/Testimonios/' + foto_path : null;
+
+  const handleToggleHistoriaActiva = async (h: Historia) => {
+    if (h.activo) { // Va a desactivar
+      setAlertConfig({
+        isOpen: true,
+        title: 'Desactivar Historia',
+        message: '¿Estás seguro de que deseas desactivar esta historia?',
+        confirmText: 'Desactivar',
+        isDestructive: true,
+        onConfirm: async () => {
+          const { error } = await supabase.from('historias_transformacion').update({ activo: !h.activo }).eq('id', h.id);
+          if (!error) setHistorias(prev => prev.map(x => x.id === h.id ? { ...x, activo: !h.activo } : x));
+          else alert('Error: ' + error.message);
+        }
+      });
+    } else {
+      const { error } = await supabase.from('historias_transformacion').update({ activo: !h.activo }).eq('id', h.id);
+      if (!error) setHistorias(prev => prev.map(x => x.id === h.id ? { ...x, activo: !h.activo } : x));
+      else alert('Error: ' + error.message);
+    }
+  };
+
+  const handleDeleteHistoria = (h: Historia) => {
+    setAlertConfig({
+      isOpen: true,
+      title: 'Eliminar Historia',
+      message: '\u00bfEliminar la historia de "' + h.nombre_alumno + '"? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      isDestructive: true,
+      onConfirm: async () => {
+        const { error } = await supabase.from('historias_transformacion').delete().eq('id', h.id);
+        if (!error) setHistorias(prev => prev.filter(x => x.id !== h.id));
+        else alert('Error al eliminar: ' + error.message);
+      }
+    });
+  };
+
+  const openHistoriaModal = (h: Historia | null) => {
+    setEditingHistoria(h);
+    setHistoriaFotoPreview(h?.foto_path ? getFotoUrl(h.foto_path) : null);
+    setHistoriaFotoFile(null);
+    setHistoriaColorSeleccionado(h?.id_color ?? null);
+    setIsAjusteOpen(false);
+    // Restore saved position/scale
+    if (h?.foto_position) {
+      const parts = h.foto_position.split(' ');
+      setAjustePosX(parseFloat(parts[0]) || 50);
+      setAjustePosY(parseFloat(parts[1]) || 50);
+    } else {
+      setAjustePosX(50);
+      setAjustePosY(50);
+    }
+    setAjusteScale(h?.foto_scale ?? 1.0);
+    setIsHistoriaModalOpen(true);
+  };
+
+  const handleSaveHistoria = async (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
+    // ⚠️ Leer TODOS los valores del form ANTES de cualquier await
+    // porque React anula ev.currentTarget después del primer yield async
+    const fd = new FormData(ev.currentTarget);
+    const activoChecked = (ev.currentTarget.querySelector('[name="activo"]') as HTMLInputElement | null)?.checked ?? true;
+    let foto_path = editingHistoria?.foto_path ?? null;
+    if (historiaFotoFile) {
+      setUploadingFoto(true);
+      try {
+        // 1. Convertir a WebP usando Canvas
+        const webpBlob = await new Promise<Blob>((resolve, reject) => {
+          const img = new Image();
+          const objectUrl = URL.createObjectURL(historiaFotoFile);
+          img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            const canvas = document.createElement('canvas');
+            // Máximo 800px de ancho manteniendo proporción
+            const maxW = 800;
+            const scale = img.width > maxW ? maxW / img.width : 1;
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { reject(new Error('No canvas context')); return; }
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error('No se pudo convertir a WebP'));
+            }, 'image/webp', 0.85);
+          };
+          img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+          img.src = objectUrl;
+        });
+
+        // 2. Subir al bucket en la carpeta Testimonio/
+        const baseName = historiaFotoFile.name.replace(/\.[^/.]+$/, '');
+        const nombreArchivo = Date.now() + '_' + baseName + '.webp';
+        const { error: upErr } = await supabase.storage
+          .from('Testimonios')
+          .upload(nombreArchivo, webpBlob, { upsert: true, contentType: 'image/webp' });
+
+        if (upErr) { alert('Error al subir foto: ' + upErr.message); setUploadingFoto(false); return; }
+        foto_path = nombreArchivo;
+      } catch (err: any) {
+        alert('Error al procesar imagen: ' + err.message);
+        setUploadingFoto(false);
+        return;
+      }
+      setUploadingFoto(false);
+    }
+    const payload: any = {
+      nombre_alumno: fd.get('nombre_alumno'),
+      programa: fd.get('programa'),
+      narracion: fd.get('narracion'),
+      palabras_por_min: fd.get('palabras_por_min'),
+      orden: Number(fd.get('orden')) || 0,
+      id_color: historiaColorSeleccionado,
+      activo: activoChecked,
+      foto_path,
+      foto_position: `${ajustePosX}% ${ajustePosY}%`,
+      foto_scale: ajusteScale,
+    };
+    if (editingHistoria) {
+      setAlertConfig({
+        isOpen: true,
+        title: 'Guardar Edición',
+        message: `¿Guardar los cambios en "${payload.nombre_alumno}"?`,
+        confirmText: 'Guardar',
+        onConfirm: async () => {
+          const { error, status, statusText } = await supabase.from('historias_transformacion').update(payload).eq('id', editingHistoria.id);
+          console.log('[UPDATE Historia] id:', editingHistoria.id, '| status:', status, statusText, '| error:', error);
+          if (!error) {
+            setHistorias(prev => prev.map(x => x.id === editingHistoria.id ? { ...x, ...payload } : x));
+            setIsHistoriaModalOpen(false);
+          } else alert('Error al actualizar: ' + error.message + ' (code: ' + error.code + ')');
+        }
+      });
+    } else {
+      const { data, error } = await supabase.from('historias_transformacion').insert([payload]).select().single();
+      if (!error && data) { setHistorias(prev => [data, ...prev]); setIsHistoriaModalOpen(false); }
+      else alert('Error al crear: ' + error?.message);
+    }
+  };
+
+  const renderHistorias = () => {
+    const filtered = historias.filter(h => h.nombre_alumno.toLowerCase().includes(searchTerm.toLowerCase()));
+    return (
+      <div className="space-y-6">
+        <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
+          <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">Historias de Transformaci&#243;n</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Testimonios del carrusel p&#250;blico</p>
+            </div>
+            <button onClick={() => openHistoriaModal(null)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200">
+              <Plus size={18} /> Nueva Historia
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-4 text-left">Previa</th>
+                  <th className="px-6 py-4 text-left">Alumno</th>
+                  <th className="px-6 py-4 text-left">Programa</th>
+                  <th className="px-6 py-4 text-left">PPM</th>
+                  <th className="px-6 py-4 text-left">Color</th>
+                  <th className="px-6 py-4 text-center">Orden</th>
+                  <th className="px-6 py-4 text-center">Activo</th>
+                  <th className="px-6 py-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filtered.length > 0 ? filtered.map(h => {
+                  const color = coloresCorporativos.find(c => c.id === h.id_color);
+                  const fotoUrl = getFotoUrl(h.foto_path);
+                  return (
+                    <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        {fotoUrl ? (
+                          <img src={fotoUrl} alt={h.nombre_alumno} className="w-12 h-12 rounded-xl object-cover border border-slate-100 shadow-sm" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-300"><ImageIcon size={20} /></div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-800">{h.nombre_alumno}</p>
+                        <p className="text-xs text-slate-400 mt-0.5 max-w-[200px] truncate">{h.narracion}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={'px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-tight border ' + (h.programa === 'Profesional' ? 'bg-purple-50 text-purple-600 border-purple-100' : h.programa === 'Kids' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-amber-50 text-amber-600 border-amber-100')}>
+                          {h.programa}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-700 text-sm">{h.palabras_por_min}</td>
+                      <td className="px-6 py-4">
+                        {color ? (
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full border border-slate-200 shadow-sm flex-shrink-0" style={{ backgroundColor: color.hex }} />
+                            <span className="text-xs text-slate-500 font-medium truncate max-w-[80px]">{color.nombre}</span>
+                          </div>
+                        ) : <span className="text-slate-300 text-xs">&mdash;</span>}
+                      </td>
+                      <td className="px-6 py-4 text-center font-black text-slate-700">{h.orden}</td>
+                      <td className="px-6 py-4 text-center">
+                        <button onClick={() => handleToggleHistoriaActiva(h)} className={'relative inline-flex h-6 w-11 items-center rounded-full transition-colors ' + (h.activo ? 'bg-emerald-500' : 'bg-slate-200')}>
+                          <span className={'inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ' + (h.activo ? 'translate-x-6' : 'translate-x-1')} />
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => openHistoriaModal(h)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={16} /></button>
+                          <button onClick={() => handleDeleteHistoria(h)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr><td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No hay historias registradas</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderHistoriaModal = () => {
+    if (!isHistoriaModalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-shrink-0">
+            <h3 className="text-xl font-bold text-slate-800">{editingHistoria ? 'Editar Historia' : 'Nueva Historia de Transformaci&#243;n'}</h3>
+            <button onClick={() => setIsHistoriaModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X size={20} className="text-slate-500" /></button>
+          </div>
+          <div className="p-6 overflow-y-auto">
+            <form onSubmit={handleSaveHistoria} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre del Alumno</label>
+                <input name="nombre_alumno" required defaultValue={editingHistoria?.nombre_alumno} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Mar&#237;a L&#243;pez" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Programa</label>
+                <select name="programa" required defaultValue={editingHistoria?.programa ?? ''} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
+                  <option value="">Seleccionar...</option>
+                  <option>Profesional</option>
+                  <option>Kids</option>
+                  <option>PreKids</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Narraci&#243;n / Testimonio <span className="text-slate-300 font-medium normal-case">(m&#225;x. 300 car.)</span></label>
+                <textarea name="narracion" required maxLength={300} defaultValue={editingHistoria?.narracion} rows={4} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm resize-none" placeholder="Testimonio del alumno..." />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Palabras por Minuto</label>
+                  <input name="palabras_por_min" required defaultValue={editingHistoria?.palabras_por_min} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="e.g. 1,200 ppm" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Orden en Carrusel</label>
+                  <input name="orden" type="number" min={0} defaultValue={editingHistoria?.orden ?? 0} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
+                </div>
+              </div>
+              {coloresCorporativos.length > 0 && (
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Color de Fondo</label>
+                  <div className="flex flex-wrap gap-3">
+                    {coloresCorporativos.map(c => (
+                      <button key={c.id} type="button" onClick={() => setHistoriaColorSeleccionado(c.id)} title={c.nombre}
+                        className={'w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all shadow-sm ' + (historiaColorSeleccionado === c.id ? 'border-slate-700 scale-110' : 'border-white hover:scale-105')}
+                        style={{ backgroundColor: c.hex }}>
+                        {historiaColorSeleccionado === c.id && <CheckCircle size={16} className="text-white drop-shadow" />}
+                      </button>
+                    ))}
+                  </div>
+                  {historiaColorSeleccionado && <p className="text-xs text-slate-400 mt-1.5 font-medium">{coloresCorporativos.find(c => c.id === historiaColorSeleccionado)?.nombre}</p>}
+                </div>
+              )}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Foto del Alumno</label>
+                {/* File input + Ajustar button */}
+                <div className="flex items-center gap-2 mb-3">
+                  <input type="file" accept="image/*" onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) { setHistoriaFotoFile(f); setHistoriaFotoPreview(URL.createObjectURL(f)); setAjustePosX(50); setAjustePosY(50); setAjusteScale(1.0); setIsAjusteOpen(false); }
+                  }} className="flex-1 text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer" />
+                  {historiaFotoPreview && (
+                    <button type="button" onClick={() => setIsAjusteOpen(v => !v)}
+                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${isAjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+                      {isAjusteOpen ? 'Cerrar' : '✦ Ajustar'}
+                    </button>
+                  )}
+                </div>
+                {/* Static preview when adjuster closed */}
+                {historiaFotoPreview && !isAjusteOpen && (
+                  <div className="w-full rounded-2xl overflow-hidden border border-slate-100 shadow-sm" style={{ aspectRatio: '3/2' }}>
+                    <img src={historiaFotoPreview} alt="Preview" draggable={false} className="w-full h-full"
+                      style={{ objectFit: 'cover', objectPosition: `${ajustePosX}% ${ajustePosY}%`, transform: `scale(${ajusteScale})`, transformOrigin: `${ajustePosX}% ${ajustePosY}%` }} />
+                  </div>
+                )}
+                {/* Interactive adjuster */}
+                {historiaFotoPreview && isAjusteOpen && (
+                  <div className="rounded-2xl border-2 border-slate-800 overflow-hidden shadow-xl">
+                    <div className="relative w-full select-none cursor-crosshair" style={{ aspectRatio: '3/2', overflow: 'hidden', background: '#0f172a' }}
+                      onMouseMove={(e) => { if (e.buttons !== 1) return; const r = e.currentTarget.getBoundingClientRect(); setAjustePosX(Math.round(Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100)))); setAjustePosY(Math.round(Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100)))); }}
+                      onTouchMove={(e) => { e.preventDefault(); const t = e.touches[0]; const r = e.currentTarget.getBoundingClientRect(); setAjustePosX(Math.round(Math.max(0, Math.min(100, ((t.clientX - r.left) / r.width) * 100)))); setAjustePosY(Math.round(Math.max(0, Math.min(100, ((t.clientY - r.top) / r.height) * 100)))); }}
+                    >
+                      <img src={historiaFotoPreview} alt="Ajustar" draggable={false} className="w-full h-full pointer-events-none"
+                        style={{ objectFit: 'cover', objectPosition: `${ajustePosX}% ${ajustePosY}%`, transform: `scale(${ajusteScale})`, transformOrigin: `${ajustePosX}% ${ajustePosY}%`, transition: 'transform 0.1s ease' }} />
+                      <div className="pointer-events-none absolute" style={{ left: `calc(${ajustePosX}% - 12px)`, top: `calc(${ajustePosY}% - 12px)` }}>
+                        <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg" />
+                      </div>
+                      <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">3 : 2</div>
+                      <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{ajustePosX}% · {ajustePosY}%</div>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[9px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
+                    </div>
+                    <div className="bg-slate-900 p-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-white/60 text-[10px] font-black uppercase tracking-widest w-12">Zoom</span>
+                        <input type="range" min="1" max="2.5" step="0.05" value={ajusteScale} onChange={(e) => setAjusteScale(parseFloat(e.target.value))} className="flex-1 accent-emerald-400 cursor-pointer" />
+                        <span className="text-white/80 text-xs font-black w-10 text-right">{ajusteScale.toFixed(2)}x</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => { setAjustePosX(50); setAjustePosY(50); setAjusteScale(1.0); }}
+                          className="flex-1 py-2 text-xs font-bold text-white/60 hover:text-white border border-white/10 rounded-xl transition-colors">Restablecer</button>
+                        <button type="button" onClick={() => setIsAjusteOpen(false)}
+                          className="flex-1 py-2 text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl transition-colors">✓ Guardar ajuste</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Placeholder when no photo */}
+                {!historiaFotoPreview && (
+                  <div className="w-full rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 gap-2" style={{ aspectRatio: '3/2' }}>
+                    <ImageIcon size={28} /><span className="text-xs font-bold">Sin foto seleccionada</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3 py-1">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input name="activo" type="checkbox" defaultChecked={editingHistoria?.activo ?? true} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 shadow-inner"></div>
+                </label>
+                <span className="text-sm font-bold text-slate-700">Visible en carrusel p&#250;blico</span>
+              </div>
+              <button type="submit" disabled={uploadingFoto} className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-2 disabled:opacity-60 flex items-center justify-center gap-2">
+                {uploadingFoto ? <><Loader2 size={16} className="animate-spin" /> Subiendo foto...</> : <><Sparkles size={16} /> {editingHistoria ? 'Guardar Cambios' : 'Crear Historia'}</>}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -1364,21 +1842,24 @@ const App: React.FC = () => {
           <h1 className="text-2xl font-black tracking-tight">DataLanding</h1>
         </div>
 
-        <nav className="space-y-2 flex-1">
-          <button onClick={() => setActiveView('dashboard')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold transition-all ${activeView === 'dashboard' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <LayoutDashboard size={20} /> Dashboard
+        <nav className="space-y-1.5 flex-1">
+          <button onClick={() => setActiveView('dashboard')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'dashboard' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+            <Home size={22} /> Dashboard
           </button>
-          <button onClick={() => setActiveView('citas')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold transition-all ${activeView === 'citas' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <Calendar size={20} /> Citas
+          <button onClick={() => setActiveView('citas')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'citas' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+            <Calendar size={22} /> Citas
           </button>
-          <button onClick={() => setActiveView('alumnos')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold transition-all ${activeView === 'alumnos' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <GraduationCap size={20} /> Alumnos
+          <button onClick={() => setActiveView('alumnos')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'alumnos' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+            <GraduationCap size={22} /> Alumnos
           </button>
-          <button onClick={() => setActiveView('apoderados')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold transition-all ${activeView === 'apoderados' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <Users size={20} /> Apoderados
+          <button onClick={() => setActiveView('apoderados')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'apoderados' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+            <Users size={22} /> Apoderados
           </button>
-          <button onClick={() => setActiveView('filiales')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold transition-all ${activeView === 'filiales' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <MapPin size={20} /> Filiales
+          <button onClick={() => setActiveView('filiales')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'filiales' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+            <MapPin size={22} /> Filiales
+          </button>
+          <button onClick={() => setActiveView('historias')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'historias' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+            <Sparkles size={22} /> Historias
           </button>
         </nav>
 
@@ -1428,9 +1909,11 @@ const App: React.FC = () => {
         {activeView === 'alumnos' && renderAlumnos()}
         {activeView === 'apoderados' && renderApoderados()}
         {activeView === 'filiales' && renderFiliales()}
+        {activeView === 'historias' && renderHistorias()}
 
         {renderAppointmentDetailsModal()}
         {renderRescheduleModal()}
+        {renderHistoriaModal()}
 
         {/* Modales Compartidos */}
         <Modal
@@ -1444,6 +1927,26 @@ const App: React.FC = () => {
               const fd = new FormData(e.currentTarget);
               handleAddAppointment(Object.fromEntries(fd));
             }} className="space-y-4">
+              {/* Tipo de persona */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Persona</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-100 transition-all">
+                    <input type="radio" name="tipo_persona" value="dependiente" defaultChecked className="text-blue-600" />
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">Dependiente</p>
+                      <p className="text-[10px] text-slate-400">Tiene apoderado</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-slate-200 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition-all">
+                    <input type="radio" name="tipo_persona" value="independiente" className="text-emerald-600" />
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">Independiente</p>
+                      <p className="text-[10px] text-slate-400">Contacto propio</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Alumno Solicitante</label>
                 <select name="id_alumno" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
@@ -1480,10 +1983,31 @@ const App: React.FC = () => {
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo</label>
                 <input type="text" name="nombre_completo" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Javier Estrada" />
               </div>
+              {/* Tipo de alumno */}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Apoderado</label>
-                <select name="id_apoderado" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
-                  <option value="">Seleccione un apoderado...</option>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Alumno</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-100 transition-all">
+                    <input type="radio" name="tipo_alumno" value="dependiente" defaultChecked className="text-blue-600" />
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">Dependiente</p>
+                      <p className="text-[10px] text-slate-400">Tiene apoderado</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-slate-200 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition-all">
+                    <input type="radio" name="tipo_alumno" value="independiente" className="text-emerald-600" />
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">Independiente</p>
+                      <p className="text-[10px] text-slate-400">Contacto propio</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              {/* Apoderado — solo si dependiente. En React puro sin state reactivo en form mostramos siempre pero con nota */}
+              <div id="apoderado-section">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Apoderado <span className="text-blue-400">(solo si dependiente)</span></label>
+                <select name="id_apoderado" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
+                  <option value="">Sin apoderado (independiente)</option>
                   {apoderados.map(ap => <option key={ap.id} value={ap.id}>{ap.nombre_completo}</option>)}
                 </select>
               </div>
@@ -1493,8 +2017,8 @@ const App: React.FC = () => {
                   <input type="number" name="edad" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular</label>
-                  <input type="text" name="telefono" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999000888" />
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular <span className="text-emerald-500">(si independiente)</span></label>
+                  <input type="text" name="telefono" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999000888" />
                 </div>
               </div>
               <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 btn-glow">
@@ -1579,6 +2103,7 @@ const App: React.FC = () => {
             </form>
           )}
         </Modal>
+        <ConfirmAlert config={alertConfig} onClose={() => setAlertConfig(null)} />
       </main>
     </div >
   );
@@ -1589,3 +2114,4 @@ if (container) {
   const root = createRoot(container);
   root.render(<App />);
 }
+
