@@ -35,7 +35,11 @@ import {
   CalendarDays,
   Sparkles,
   CheckCircle,
-  ImageIcon
+  ImageIcon,
+  GripVertical,
+  Upload,
+  Images,
+  Palette
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado } from './types';
@@ -141,24 +145,50 @@ const ConfirmAlert: React.FC<{ config: any; onClose: () => void }> = ({ config, 
 
 // --- App Principal ---
 
-// --- Tipos locales para Historias ---
+// --- Tipos locales ---
 interface ColorCorporativo { id: number; nombre: string; clase_css: string; hex: string; activo: boolean; }
 interface Historia { id: number; nombre_alumno: string; programa: string; narracion: string; palabras_por_min: string; foto_path: string | null; foto_position: string | null; foto_scale: number | null; id_color: number | null; activo: boolean; orden: number; created_at: string; }
+interface Carrusel02Imagen { id: number; nombre: string; file_path: string; orden: number; activo: boolean; foto_position: string | null; foto_scale: number | null; created_at: string; }
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias' | 'carrusel02'>('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [filiales, setFiliales] = useState<Filial[]>([]);
   const [apoderados, setApoderados] = useState<Apoderado[]>([]);
   const [historias, setHistorias] = useState<Historia[]>([]);
   const [coloresCorporativos, setColoresCorporativos] = useState<ColorCorporativo[]>([]);
+  
+  // --- Estado Gestion Colores ---
+  const [isColorManagerOpen, setIsColorManagerOpen] = useState(false);
+  const [editingColor, setEditingColor] = useState<ColorCorporativo | null>(null);
+  const [colorFormNombre, setColorFormNombre] = useState('');
+  const [colorFormHex, setColorFormHex] = useState('#10b981');
+  const [colorFormClaseCss, setColorFormClaseCss] = useState('');
+  
   const [isHistoriaModalOpen, setIsHistoriaModalOpen] = useState(false);
   const [editingHistoria, setEditingHistoria] = useState<Historia | null>(null);
   const [historiaFotoPreview, setHistoriaFotoPreview] = useState<string | null>(null);
   const [historiaFotoFile, setHistoriaFotoFile] = useState<File | null>(null);
   const [historiaColorSeleccionado, setHistoriaColorSeleccionado] = useState<number | null>(null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
+
+  // --- Estado Carrusel 02 ---
+  const [carrusel02, setCarrusel02] = useState<Carrusel02Imagen[]>([]);
+  const [isCarrusel02ModalOpen, setIsCarrusel02ModalOpen] = useState(false);
+  const [carrusel02Editing, setCarrusel02Editing] = useState<Carrusel02Imagen | null>(null);
+  const [carrusel02File, setCarrusel02File] = useState<File | null>(null);
+  const [carrusel02Preview, setCarrusel02Preview] = useState<string | null>(null);
+  const [carrusel02Uploading, setCarrusel02Uploading] = useState(false);
+  const [carrusel02DragOver, setCarrusel02DragOver] = useState<number | null>(null);
+  const carrusel02DragRef = React.useRef<number | null>(null);
+  const carrusel02FileInputRef = React.useRef<HTMLInputElement>(null);
+  // Ajuste de imagen Carrusel 02
+  const [carrusel02PosX, setCarrusel02PosX] = useState(50);
+  const [carrusel02PosY, setCarrusel02PosY] = useState(50);
+  const [carrusel02Scale, setCarrusel02Scale] = useState(1.0);
+  const [isCarrusel02AjusteOpen, setIsCarrusel02AjusteOpen] = useState(false);
+
   // Adjuster state
   const [isAjusteOpen, setIsAjusteOpen] = useState(false);
   const [ajustePosX, setAjustePosX] = useState(50);
@@ -218,7 +248,7 @@ const App: React.FC = () => {
     else setRefreshing(true);
 
     try {
-      const [alRes, filRes, appRes, apoRes, histRes, colorRes] = await Promise.all([
+      const [alRes, filRes, appRes, apoRes, histRes, colorRes, c02Res] = await Promise.all([
         supabase.from('alumnos').select('*').order('creado_en', { ascending: false }),
         supabase.from('filiales').select('*').order('nombre', { ascending: true }),
         supabase.from('citas').select(`
@@ -228,7 +258,8 @@ const App: React.FC = () => {
         `).order('creado_en', { ascending: false }),
         supabase.from('apoderados').select('*').order('creado_en', { ascending: false }),
         supabase.from('historias_transformacion').select('*').order('orden', { ascending: true }),
-        supabase.from('colores_corporativos').select('*').eq('activo', true).order('nombre', { ascending: true })
+        supabase.from('colores_corporativos').select('*').eq('activo', true).order('nombre', { ascending: true }),
+        supabase.from('carrusel_02_imagenes').select('*').order('orden', { ascending: true })
       ]);
 
       if (alRes.error) console.error('[FETCH] Error alumnos:', alRes.error.message);
@@ -241,6 +272,7 @@ const App: React.FC = () => {
       if (apoRes.data) setApoderados(apoRes.data);
       if (histRes.data) setHistorias(histRes.data);
       if (colorRes.data) setColoresCorporativos(colorRes.data);
+      if (c02Res.data) setCarrusel02(c02Res.data);
       if (appRes.data) {
         const transformedApps = appRes.data.map((a: any) => {
           // Manejo robusto: Supabase puede devolver un objeto o un array si la relación es 1:N (aunque sea FK)
@@ -1617,6 +1649,89 @@ const App: React.FC = () => {
     }
   };
 
+  const openColorModal = (c: ColorCorporativo | null) => {
+    setEditingColor(c);
+    setColorFormNombre(c?.nombre ?? '');
+    setColorFormHex(c?.hex ?? '#10b981');
+    setColorFormClaseCss(c?.clase_css ?? '');
+  };
+
+  const checkColorInUse = async (colorId: number): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('historias_transformacion')
+      .select('id')
+      .eq('id_color', colorId)
+      .limit(1);
+    if (error) { console.error(error); return false; }
+    return !!(data && data.length > 0);
+  };
+
+  const handleSaveColor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      nombre: colorFormNombre,
+      hex: colorFormHex,
+      clase_css: colorFormClaseCss || `bg-[${colorFormHex}]`,
+      activo: true
+    };
+
+    if (editingColor) {
+      const inUse = await checkColorInUse(editingColor.id);
+      if (inUse) {
+        alert('Este color está siendo usado en testimonios. No se puede editar.');
+        return;
+      }
+      setAlertConfig({
+        isOpen: true,
+        title: 'Guardar Color',
+        message: `¿Guardar los cambios en el color "${colorFormNombre}"?`,
+        confirmText: 'Guardar',
+        onConfirm: async () => {
+          const { error } = await supabase.from('colores_corporativos').update(payload).eq('id', editingColor.id);
+          if (!error) {
+            setColoresCorporativos(prev => prev.map(c => c.id === editingColor.id ? { ...c, ...payload } : c));
+            openColorModal(null);
+          } else alert('Error al actualizar color: ' + error.message);
+        }
+      });
+    } else {
+      setAlertConfig({
+        isOpen: true,
+        title: 'Añadir Color',
+        message: `¿Crear el nuevo color "${colorFormNombre}"?`,
+        confirmText: 'Añadir',
+        onConfirm: async () => {
+          const { data, error } = await supabase.from('colores_corporativos').insert([payload]).select().single();
+          if (!error && data) {
+            setColoresCorporativos(prev => [...prev, data]);
+            openColorModal(null);
+          } else alert('Error al crear color: ' + error?.message);
+        }
+      });
+    }
+  };
+
+  const handleDeleteColor = async (color: ColorCorporativo) => {
+    const inUse = await checkColorInUse(color.id);
+    if (inUse) {
+      alert(`El color "${color.nombre}" está siendo usado en testimonios. No se puede eliminar hasta que se desvincule.`);
+      return;
+    }
+    setAlertConfig({
+      isOpen: true,
+      title: 'Eliminar Color',
+      message: `¿Eliminar el color "${color.nombre}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      isDestructive: true,
+      onConfirm: async () => {
+        const { error } = await supabase.from('colores_corporativos').delete().eq('id', color.id);
+        if (!error) {
+          setColoresCorporativos(prev => prev.filter(c => c.id !== color.id));
+        } else alert('Error al eliminar color: ' + error.message);
+      }
+    });
+  };
+
   const renderHistorias = () => {
     const filtered = historias.filter(h => h.nombre_alumno.toLowerCase().includes(searchTerm.toLowerCase()));
     return (
@@ -1627,9 +1742,14 @@ const App: React.FC = () => {
               <h3 className="text-xl font-bold text-slate-800">Historias de Transformaci&#243;n</h3>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Testimonios del carrusel p&#250;blico</p>
             </div>
-            <button onClick={() => openHistoriaModal(null)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200">
-              <Plus size={18} /> Nueva Historia
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setIsColorManagerOpen(true)} className="bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm">
+                <Palette size={18} className="text-emerald-500" /> Gestionar Colores
+              </button>
+              <button onClick={() => openHistoriaModal(null)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200">
+                <Plus size={18} /> Nueva Historia
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -1831,6 +1951,621 @@ const App: React.FC = () => {
     );
   };
 
+  // --- Helpers Carrusel 02 ---
+  const getCarrusel02Url = (file_path: string): string => {
+    const { data } = supabase.storage.from('carrusel_02').getPublicUrl(file_path);
+    return data.publicUrl;
+  };
+
+  const convertToWebPBlob = (file: File): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const canvas = document.createElement('canvas');
+        const maxW = 1200;
+        const scale = img.width > maxW ? maxW / img.width : 1;
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('No canvas context')); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Conversión fallida')), 'image/webp', 0.88);
+      };
+      img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+      img.src = objectUrl;
+    });
+
+  const openCarrusel02Modal = (img: Carrusel02Imagen | null) => {
+    setCarrusel02Editing(img);
+    setCarrusel02File(null);
+    setIsCarrusel02AjusteOpen(false);
+    setCarrusel02Preview(img ? getCarrusel02Url(img.file_path) : null);
+    if (img?.foto_position) {
+      const parts = img.foto_position.split(' ');
+      setCarrusel02PosX(parseFloat(parts[0]) || 50);
+      setCarrusel02PosY(parseFloat(parts[1]) || 50);
+    } else { setCarrusel02PosX(50); setCarrusel02PosY(50); }
+    setCarrusel02Scale(img?.foto_scale ?? 1.0);
+    setIsCarrusel02ModalOpen(true);
+  };
+
+  const handleCarrusel02Save = async (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
+    // Leer el formulario ANTES de cualquier operación async (React invalida ev.currentTarget después)
+    const fd = new FormData(ev.currentTarget);
+    const nombre = (fd.get('nombre') as string || '').trim();
+
+    if (!carrusel02File && !carrusel02Editing) { alert('Selecciona una imagen.'); return; }
+
+    // Capturar estado en el momento del submit para los closures
+    const foto_position = `${carrusel02PosX}% ${carrusel02PosY}%`;
+    const foto_scale    = carrusel02Scale;
+    const editingSnap   = carrusel02Editing;
+    const fileSnap      = carrusel02File;
+
+    if (editingSnap) {
+      // --- EDICIÓN: confirmar primero, luego subir y guardar ---
+      setAlertConfig({
+        isOpen: true,
+        title: fileSnap ? 'Reemplazar y Guardar' : 'Guardar Cambios',
+        message: fileSnap
+          ? `¿Reemplazar la imagen y guardar cambios en "${nombre || editingSnap.nombre}"?`
+          : `¿Guardar los cambios en "${nombre || editingSnap.nombre}"?`,
+        confirmText: 'Guardar',
+        onConfirm: async () => {
+          setCarrusel02Uploading(true);
+          try {
+            let filePath = editingSnap.file_path;
+
+            if (fileSnap) {
+              const webpBlob = await convertToWebPBlob(fileSnap);
+              const fileName = `${Date.now()}_${fileSnap.name.replace(/\.[^/.]+$/, '')}.webp`;
+              const { error: upErr } = await supabase.storage
+                .from('carrusel_02')
+                .upload(fileName, webpBlob, { upsert: false, contentType: 'image/webp' });
+              if (upErr) { alert('Error al subir imagen: ' + upErr.message); return; }
+              await supabase.storage.from('carrusel_02').remove([editingSnap.file_path]);
+              filePath = fileName;
+            }
+
+            const payload = { nombre, file_path: filePath, foto_position, foto_scale };
+            const { error } = await supabase
+              .from('carrusel_02_imagenes')
+              .update(payload)
+              .eq('id', editingSnap.id);
+
+            if (!error) {
+              setCarrusel02(prev => prev.map(x => x.id === editingSnap.id ? { ...x, ...payload } : x));
+              setIsCarrusel02ModalOpen(false);
+            } else {
+              alert('Error al actualizar: ' + error.message + (error.code ? ` (${error.code})` : ''));
+            }
+          } finally {
+            setCarrusel02Uploading(false);
+          }
+        }
+      });
+
+    } else {
+      // --- AGREGAR: subir y guardar directamente ---
+      setCarrusel02Uploading(true);
+      try {
+        const webpBlob = await convertToWebPBlob(fileSnap!);
+        const fileName = `${Date.now()}_${fileSnap!.name.replace(/\.[^/.]+$/, '')}.webp`;
+        const { error: upErr } = await supabase.storage
+          .from('carrusel_02')
+          .upload(fileName, webpBlob, { upsert: false, contentType: 'image/webp' });
+        if (upErr) { alert('Error al subir imagen: ' + upErr.message); return; }
+
+        const nextOrden = carrusel02.length > 0 ? Math.max(...carrusel02.map(x => x.orden)) + 1 : 1;
+        const payload = { nombre, file_path: fileName, foto_position, foto_scale, orden: nextOrden, activo: true };
+        const { data, error } = await supabase
+          .from('carrusel_02_imagenes')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (!error && data) {
+          setCarrusel02(prev => [...prev, data]);
+          setIsCarrusel02ModalOpen(false);
+        } else {
+          alert('Error al agregar: ' + (error?.message ?? 'respuesta vacía') + (error?.code ? ` (${error.code})` : ''));
+        }
+      } finally {
+        setCarrusel02Uploading(false);
+      }
+    }
+  };
+
+  const handleCarrusel02Delete = (img: Carrusel02Imagen) => {
+    setAlertConfig({
+      isOpen: true,
+      title: 'Eliminar Imagen',
+      message: `¿Eliminar "${img.nombre || img.file_path}"? Se borrará del carrusel y del storage. Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      isDestructive: true,
+      onConfirm: async () => {
+        await supabase.storage.from('carrusel_02').remove([img.file_path]);
+        const { error } = await supabase.from('carrusel_02_imagenes').delete().eq('id', img.id);
+        if (!error) setCarrusel02(prev => prev.filter(x => x.id !== img.id));
+        else alert('Error al eliminar: ' + error.message);
+      }
+    });
+  };
+
+  const handleCarrusel02ToggleActivo = (img: Carrusel02Imagen) => {
+    if (img.activo) {
+      setAlertConfig({
+        isOpen: true,
+        title: 'Ocultar Imagen',
+        message: `¿Ocultar "${img.nombre || img.file_path}" del carrusel público?`,
+        confirmText: 'Ocultar',
+        isDestructive: true,
+        onConfirm: async () => {
+          const { error } = await supabase.from('carrusel_02_imagenes').update({ activo: false }).eq('id', img.id);
+          if (!error) setCarrusel02(prev => prev.map(x => x.id === img.id ? { ...x, activo: false } : x));
+        }
+      });
+    } else {
+      supabase.from('carrusel_02_imagenes').update({ activo: true }).eq('id', img.id)
+        .then(({ error }) => {
+          if (!error) setCarrusel02(prev => prev.map(x => x.id === img.id ? { ...x, activo: true } : x));
+        });
+    }
+  };
+
+  const handleCarrusel02DragStart = (index: number, e: React.DragEvent) => {
+    carrusel02DragRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    // Ocultar la imagen fantasma (luz fuerte) generada por el navegador al arrastrar
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(img, 0, 0);
+  };
+
+  const handleCarrusel02DragOver = (index: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setCarrusel02DragOver(index);
+  };
+
+  const handleCarrusel02Drop = async (dropIndex: number, e: React.DragEvent) => {
+    e.preventDefault();
+    const dragIndex = carrusel02DragRef.current;
+    setCarrusel02DragOver(null);
+    if (dragIndex === null || dragIndex === dropIndex) { carrusel02DragRef.current = null; return; }
+
+    const reordered = [...carrusel02];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(dropIndex, 0, moved);
+    const updated = reordered.map((img, i) => ({ ...img, orden: i + 1 }));
+    setCarrusel02(updated);
+    carrusel02DragRef.current = null;
+
+    await Promise.all(
+      updated.map(img => supabase.from('carrusel_02_imagenes').update({ orden: img.orden }).eq('id', img.id))
+    );
+  };
+
+  const renderCarrusel02 = () => (
+    <div className="space-y-6">
+      <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
+        <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
+          <div>
+            <h3 className="text-xl font-bold text-slate-800">Carrusel 02 — Evidencia Visual</h3>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Segunda fila de la sección Resultados · Arrastra para reordenar</p>
+          </div>
+          <button
+            onClick={() => openCarrusel02Modal(null)}
+            className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+          >
+            <Upload size={18} /> Agregar Imagen
+          </button>
+        </div>
+
+        {carrusel02.length === 0 ? (
+          <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
+            No hay imágenes en el Carrusel 02. Agrega la primera.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 bg-white">
+            {carrusel02.map((img, index) => (
+              <div
+                key={img.id}
+                draggable
+                onDragStart={(e) => handleCarrusel02DragStart(index, e)}
+                onDragOver={(e) => handleCarrusel02DragOver(index, e)}
+                onDrop={(e) => handleCarrusel02Drop(index, e)}
+                onDragLeave={() => setCarrusel02DragOver(null)}
+                onDragEnd={() => { setCarrusel02DragOver(null); carrusel02DragRef.current = null; }}
+                className={`flex items-center gap-4 px-4 py-3 transition-colors select-none ${carrusel02DragOver === index ? 'bg-emerald-50 border-t-2 border-emerald-400' : 'hover:bg-slate-50/60'}`}
+              >
+                {/* Grip handle */}
+                <div
+                  className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0 p-1"
+                  title="Arrastra para cambiar el orden"
+                >
+                  <GripVertical size={20} />
+                </div>
+
+                {/* Order badge */}
+                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 flex-shrink-0">
+                  {img.orden}
+                </div>
+
+                {/* Thumbnail */}
+                <div className="w-16 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
+                  <img
+                    src={getCarrusel02Url(img.file_path)}
+                    alt={img.nombre}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+
+                {/* Name & path */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-slate-800 truncate">{img.nombre || '—'}</p>
+                  <p className="text-[11px] text-slate-400 truncate font-mono">{img.file_path}</p>
+                </div>
+
+                {/* Active toggle */}
+                <button
+                  onClick={() => handleCarrusel02ToggleActivo(img)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${img.activo ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                  title={img.activo ? 'Visible en el carrusel' : 'Oculta del carrusel'}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ${img.activo ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => openCarrusel02Modal(img)}
+                    className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Reemplazar imagen o editar nombre"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleCarrusel02Delete(img)}
+                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                    title="Eliminar imagen"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderCarrusel02Modal = () => {
+    if (!isCarrusel02ModalOpen) return null;
+    const isEditing = !!carrusel02Editing;
+    const hasNewFile = !!carrusel02File;
+
+    const clearSelectedFile = () => {
+      setCarrusel02File(null);
+      setIsCarrusel02AjusteOpen(false);
+      setCarrusel02Preview(carrusel02Editing ? getCarrusel02Url(carrusel02Editing.file_path) : null);
+      if (carrusel02Editing?.foto_position) {
+        const parts = carrusel02Editing.foto_position.split(' ');
+        setCarrusel02PosX(parseFloat(parts[0]) || 50);
+        setCarrusel02PosY(parseFloat(parts[1]) || 50);
+      } else { setCarrusel02PosX(50); setCarrusel02PosY(50); }
+      setCarrusel02Scale(carrusel02Editing?.foto_scale ?? 1.0);
+      if (carrusel02FileInputRef.current) carrusel02FileInputRef.current.value = '';
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-shrink-0">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">
+                {isEditing ? 'Editar Imagen' : 'Agregar Imagen al Carrusel 02'}
+              </h3>
+              {isEditing && <p className="text-xs text-slate-400 mt-0.5">Deja el campo de archivo vacío para conservar la imagen actual.</p>}
+            </div>
+            <button onClick={() => setIsCarrusel02ModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+              <X size={20} className="text-slate-500" />
+            </button>
+          </div>
+
+          <div className="p-6 overflow-y-auto">
+            <form onSubmit={handleCarrusel02Save} className="space-y-5">
+
+              {/* Nombre */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Etiqueta descriptiva</label>
+                <input
+                  name="nombre"
+                  defaultValue={carrusel02Editing?.nombre ?? ''}
+                  placeholder='Ej. "Demostración Lima Mayo 2025"'
+                  className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                />
+              </div>
+
+              {/* File input + botón Ajustar */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  {isEditing ? 'Nueva Imagen (opcional — reemplaza la actual)' : 'Imagen *'}
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={carrusel02FileInputRef}
+                    type="file"
+                    accept="image/*"
+                    required={!isEditing}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setCarrusel02File(f);
+                        setCarrusel02Preview(URL.createObjectURL(f));
+                        setCarrusel02PosX(50); setCarrusel02PosY(50); setCarrusel02Scale(1.0);
+                        setIsCarrusel02AjusteOpen(false);
+                      }
+                    }}
+                    className="flex-1 text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                  />
+                  {/* X para limpiar imagen seleccionada (solo si hay un archivo nuevo) */}
+                  {hasNewFile && (
+                    <button
+                      type="button"
+                      onClick={clearSelectedFile}
+                      title="Quitar imagen seleccionada"
+                      className="flex-shrink-0 p-2 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors border border-rose-100"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                  {/* Botón Ajustar (visible cuando hay preview) */}
+                  {carrusel02Preview && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCarrusel02AjusteOpen(v => !v)}
+                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${isCarrusel02AjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                    >
+                      {isCarrusel02AjusteOpen ? 'Cerrar' : '✦ Ajustar'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview estático (cuando ajuste cerrado) */}
+              {carrusel02Preview && !isCarrusel02AjusteOpen && (
+                <div className="w-full rounded-2xl overflow-hidden border border-slate-100 shadow-sm" style={{ aspectRatio: '16/9' }}>
+                  <img
+                    src={carrusel02Preview}
+                    alt="Vista previa"
+                    draggable={false}
+                    className="w-full h-full"
+                    style={{
+                      objectFit: 'cover',
+                      objectPosition: `${carrusel02PosX}% ${carrusel02PosY}%`,
+                      transform: `scale(${carrusel02Scale})`,
+                      transformOrigin: `${carrusel02PosX}% ${carrusel02PosY}%`,
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Ajustador interactivo */}
+              {carrusel02Preview && isCarrusel02AjusteOpen && (
+                <div className="rounded-2xl border-2 border-slate-800 overflow-hidden shadow-xl">
+                  <div
+                    className="relative w-full select-none cursor-crosshair"
+                    style={{ aspectRatio: '16/9', overflow: 'hidden', background: '#0f172a' }}
+                    onMouseMove={(e) => {
+                      if (e.buttons !== 1) return;
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setCarrusel02PosX(Math.round(Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100))));
+                      setCarrusel02PosY(Math.round(Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100))));
+                    }}
+                    onTouchMove={(e) => {
+                      e.preventDefault();
+                      const t = e.touches[0];
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setCarrusel02PosX(Math.round(Math.max(0, Math.min(100, ((t.clientX - r.left) / r.width) * 100))));
+                      setCarrusel02PosY(Math.round(Math.max(0, Math.min(100, ((t.clientY - r.top) / r.height) * 100))));
+                    }}
+                  >
+                    <img
+                      src={carrusel02Preview}
+                      alt="Ajustar"
+                      draggable={false}
+                      className="w-full h-full pointer-events-none"
+                      style={{
+                        objectFit: 'cover',
+                        objectPosition: `${carrusel02PosX}% ${carrusel02PosY}%`,
+                        transform: `scale(${carrusel02Scale})`,
+                        transformOrigin: `${carrusel02PosX}% ${carrusel02PosY}%`,
+                        transition: 'transform 0.1s ease',
+                      }}
+                    />
+                    {/* Punto de enfoque */}
+                    <div
+                      className="pointer-events-none absolute"
+                      style={{ left: `calc(${carrusel02PosX}% - 12px)`, top: `calc(${carrusel02PosY}% - 12px)` }}
+                    >
+                      <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg" />
+                    </div>
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">16 : 9</div>
+                    <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{carrusel02PosX}% · {carrusel02PosY}%</div>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[9px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
+                  </div>
+                  <div className="bg-slate-900 p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-white/60 text-[10px] font-black uppercase tracking-widest w-12">Zoom</span>
+                      <input
+                        type="range" min="1" max="2.5" step="0.05"
+                        value={carrusel02Scale}
+                        onChange={(e) => setCarrusel02Scale(parseFloat(e.target.value))}
+                        className="flex-1 accent-emerald-400 cursor-pointer"
+                      />
+                      <span className="text-white/80 text-xs font-black w-10 text-right">{carrusel02Scale.toFixed(2)}x</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setCarrusel02PosX(50); setCarrusel02PosY(50); setCarrusel02Scale(1.0); }}
+                        className="flex-1 py-2 text-xs font-bold text-white/60 hover:text-white border border-white/10 rounded-xl transition-colors"
+                      >
+                        Restablecer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsCarrusel02AjusteOpen(false)}
+                        className="flex-1 py-2 text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl transition-colors"
+                      >
+                        ✓ Guardar ajuste
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Placeholder cuando no hay foto */}
+              {!carrusel02Preview && (
+                <div
+                  className="w-full rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 gap-2"
+                  style={{ aspectRatio: '16/9' }}
+                >
+                  <ImageIcon size={32} />
+                  <span className="text-xs font-bold">Sin imagen seleccionada</span>
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={carrusel02Uploading}
+                className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {carrusel02Uploading
+                  ? <><Loader2 size={16} className="animate-spin" /> Subiendo...</>
+                  : <><Upload size={16} /> {isEditing ? 'Guardar Cambios' : 'Agregar al Carrusel'}</>
+                }
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderColorManagerModal = () => {
+    if (!isColorManagerOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-shrink-0">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">Gestionar Colores</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Añade o edita los colores corporativos para testimonios</p>
+            </div>
+            <button onClick={() => { setIsColorManagerOpen(false); setEditingColor(null); }} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+              <X size={20} className="text-slate-500" />
+            </button>
+          </div>
+
+          <div className="flex flex-col md:flex-row h-full overflow-hidden">
+            {/* Lista de colores */}
+            <div className="flex-1 border-r border-slate-100 overflow-y-auto p-6 bg-slate-50/30 min-h-[300px]">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Colores Existentes</h4>
+              <div className="space-y-2">
+                {coloresCorporativos.map(c => (
+                  <div key={c.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full border border-slate-200 shadow-sm" style={{ backgroundColor: c.hex }}></div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">{c.nombre}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">{c.hex}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openColorModal(c)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Editar color">
+                        <Edit size={16} />
+                      </button>
+                      <button onClick={() => handleDeleteColor(c)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Eliminar color">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {coloresCorporativos.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-4 font-bold">No hay colores registrados</p>
+                )}
+              </div>
+            </div>
+
+            {/* Formulario */}
+            <div className="w-full md:w-72 p-6 overflow-y-auto">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                {editingColor ? 'Editar Color' : 'Añadir Nuevo Color'}
+              </h4>
+              <form onSubmit={handleSaveColor} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre (ej. Esmeralda)</label>
+                  <input
+                    required
+                    value={colorFormNombre}
+                    onChange={e => setColorFormNombre(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 text-sm shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Color Hexadecimal</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      required
+                      value={colorFormHex}
+                      onChange={e => setColorFormHex(e.target.value)}
+                      className="w-10 h-10 rounded-xl cursor-pointer border-0 p-0"
+                    />
+                    <input
+                      type="text"
+                      required
+                      value={colorFormHex}
+                      onChange={e => setColorFormHex(e.target.value)}
+                      className="flex-1 p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-slate-800 text-sm shadow-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clase CSS (Tailwind) Opcional</label>
+                  <input
+                    value={colorFormClaseCss}
+                    onChange={e => setColorFormClaseCss(e.target.value)}
+                    placeholder="bg-emerald-500"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-slate-800 text-sm shadow-sm"
+                  />
+                </div>
+                <div className="pt-4 border-t border-slate-100 flex items-center gap-2">
+                  {editingColor && (
+                    <button type="button" onClick={() => openColorModal(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-sm">
+                      Cancelar
+                    </button>
+                  )}
+                  <button type="submit" className="flex-1 py-2.5 rounded-xl font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all text-sm flex items-center justify-center gap-2">
+                    <Save size={16} /> {editingColor ? 'Actualizar' : 'Añadir'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -1860,6 +2595,9 @@ const App: React.FC = () => {
           </button>
           <button onClick={() => setActiveView('historias')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'historias' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
             <Sparkles size={22} /> Historias
+          </button>
+          <button onClick={() => setActiveView('carrusel02')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'carrusel02' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+            <Images size={22} /> Carrusel 02
           </button>
         </nav>
 
@@ -1910,10 +2648,13 @@ const App: React.FC = () => {
         {activeView === 'apoderados' && renderApoderados()}
         {activeView === 'filiales' && renderFiliales()}
         {activeView === 'historias' && renderHistorias()}
+        {activeView === 'carrusel02' && renderCarrusel02()}
 
         {renderAppointmentDetailsModal()}
         {renderRescheduleModal()}
         {renderHistoriaModal()}
+        {renderCarrusel02Modal()}
+        {renderColorManagerModal()}
 
         {/* Modales Compartidos */}
         <Modal
