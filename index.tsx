@@ -124,15 +124,19 @@ const ConfirmAlert: React.FC<{ config: any; onClose: () => void }> = ({ config, 
           <p className="text-[13px] text-slate-600 leading-tight px-1 font-medium">{config.message}</p>
         </div>
         <div className="flex border-t border-slate-200/60 mt-1">
+          {!config.isAlertOnly && (
+            <>
+              <button 
+                onClick={() => { config.onCancel?.(); onClose(); }} 
+                className="flex-1 py-3 text-[17px] text-blue-500 hover:bg-slate-100/50 transition-colors font-medium"
+              >
+                {config.cancelText || 'Cancelar'}
+              </button>
+              <div className="w-[1px] bg-slate-200/60"></div>
+            </>
+          )}
           <button 
-            onClick={() => { config.onCancel?.(); onClose(); }} 
-            className="flex-1 py-3 text-[17px] text-blue-500 hover:bg-slate-100/50 transition-colors font-medium"
-          >
-            {config.cancelText || 'Cancelar'}
-          </button>
-          <div className="w-[1px] bg-slate-200/60"></div>
-          <button 
-            onClick={() => { config.onConfirm(); onClose(); }} 
+            onClick={() => { if (config.onConfirm) config.onConfirm(); onClose(); }} 
             className={`flex-1 py-3 text-[17px] transition-colors font-semibold ${config.isDestructive ? 'text-rose-500 hover:bg-rose-50/50' : 'text-blue-500 hover:bg-slate-100/50'}`}
           >
             {config.confirmText || 'Aceptar'}
@@ -330,14 +334,21 @@ const App: React.FC = () => {
   };
 
   const handleDeleteAppointment = async (id: number) => {
-    if (confirm('¿Seguro que desea eliminar esta cita permanentemente?')) {
-      const { error } = await supabase.from('citas').delete().eq('id', id);
-      if (!error) {
-        setAppointments(prev => prev.filter(a => a.id !== id));
-      } else {
-        alert("Error al eliminar la cita: " + error.message);
+    setAlertConfig({
+      isOpen: true,
+      title: 'Eliminar Cita',
+      message: '¿Seguro que desea eliminar esta cita permanentemente?',
+      confirmText: 'Eliminar',
+      isDestructive: true,
+      onConfirm: async () => {
+        const { error } = await supabase.from('citas').delete().eq('id', id);
+        if (!error) {
+          setAppointments(prev => prev.filter(a => a.id !== id));
+        } else {
+          setAlertConfig({ isOpen: true, title: 'Error', message: "Error al eliminar la cita: " + error.message, isAlertOnly: true, confirmText: 'Aceptar' });
+        }
       }
-    }
+    });
   };
 
   const handleAddAppointment = async (newApp: any) => {
@@ -517,21 +528,29 @@ const App: React.FC = () => {
   const handleRescheduleConfirm = async () => {
     if (!rescheduleApp || !selectedDate || !selectedTime) return;
 
-    // Formato YYYY-MM-DD
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    setAlertConfig({
+      isOpen: true,
+      title: 'Reprogramar Cita',
+      message: '¿Confirmar reprogramación de la cita?',
+      confirmText: 'Reprogramar',
+      onConfirm: async () => {
+        // Formato YYYY-MM-DD
+        const dateStr = selectedDate.toISOString().split('T')[0];
 
-    const { error } = await supabase
-      .from('citas')
-      .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING })
-      .eq('id', rescheduleApp.id);
+        const { error } = await supabase
+          .from('citas')
+          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING })
+          .eq('id', rescheduleApp.id);
 
-    if (!error) {
-      setAppointments(prev => prev.map(a => a.id === rescheduleApp.id ? { ...a, fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING } : a));
-      setIsRescheduleModalOpen(false);
-      alert('Cita reprogramada con éxito');
-    } else {
-      alert("Error al reprogramar: " + error.message);
-    }
+        if (!error) {
+          setAppointments(prev => prev.map(a => a.id === rescheduleApp.id ? { ...a, fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING } : a));
+          setIsRescheduleModalOpen(false);
+          setAlertConfig({ isOpen: true, title: 'Éxito', message: 'Cita reprogramada con éxito', isAlertOnly: true, confirmText: 'Aceptar' });
+        } else {
+          setAlertConfig({ isOpen: true, title: 'Error', message: "Error al reprogramar: " + error.message, isAlertOnly: true, confirmText: 'Aceptar' });
+        }
+      }
+    });
   };
 
   const getDaysInMonth = (date: Date) => {
@@ -1236,39 +1255,51 @@ const App: React.FC = () => {
   const handleStatusChangeFromModal = async (newStatus: AppointmentStatus) => {
     if (!detailsAppointment) return;
 
-    if (confirm(`¿Está seguro de cambiar el estado a ${newStatus}?`)) {
-      await handleUpdateAppointmentStatus(detailsAppointment.id, newStatus);
-      // Update local state is handled in handleUpdateAppointmentStatus via setAppointments
-      // We also need to update the currently viewed details appointment
-      setDetailsAppointment(prev => prev ? { ...prev, estado: newStatus } : null);
-    }
+    setAlertConfig({
+      isOpen: true,
+      title: 'Cambiar Estado',
+      message: `¿Está seguro de cambiar el estado a ${newStatus}?`,
+      confirmText: 'Confirmar',
+      onConfirm: async () => {
+        await handleUpdateAppointmentStatus(detailsAppointment.id, newStatus);
+        // Update local state is handled in handleUpdateAppointmentStatus via setAppointments
+        // We also need to update the currently viewed details appointment
+        setDetailsAppointment(prev => prev ? { ...prev, estado: newStatus } : null);
+      }
+    });
   };
 
   const handleReprogramFromModal = async () => {
     if (!detailsAppointment || !selectedDate || !selectedTime) return;
 
-    if (confirm("¿Confirmar reprogramación de la cita?")) {
-      // Formato YYYY-MM-DD usando fecha local
-      const year = selectedDate.getFullYear();
-      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(selectedDate.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
+    setAlertConfig({
+      isOpen: true,
+      title: 'Confirmar Reprogramación',
+      message: '¿Confirmar reprogramación de la cita?',
+      confirmText: 'Reprogramar',
+      onConfirm: async () => {
+        // Formato YYYY-MM-DD usando fecha local
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
 
-      const { error } = await supabase
-        .from('citas')
-        .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING })
-        .eq('id', detailsAppointment.id);
+        const { error } = await supabase
+          .from('citas')
+          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING })
+          .eq('id', detailsAppointment.id);
 
-      if (!error) {
-        const updatedApp = { ...detailsAppointment, fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING };
-        setAppointments(prev => prev.map(a => a.id === detailsAppointment.id ? updatedApp : a));
-        setDetailsAppointment(updatedApp);
-        setIsReprogrammingExpanded(false);
-        alert('Cita reprogramada con éxito');
-      } else {
-        alert("Error al reprogramar: " + error.message);
+        if (!error) {
+          const updatedApp = { ...detailsAppointment, fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING };
+          setAppointments(prev => prev.map(a => a.id === detailsAppointment.id ? updatedApp : a));
+          setDetailsAppointment(updatedApp);
+          setIsReprogrammingExpanded(false);
+          setAlertConfig({ isOpen: true, title: 'Éxito', message: 'Cita reprogramada con éxito', isAlertOnly: true, confirmText: 'Aceptar' });
+        } else {
+          setAlertConfig({ isOpen: true, title: 'Error', message: "Error al reprogramar: " + error.message, isAlertOnly: true, confirmText: 'Aceptar' });
+        }
       }
-    }
+    });
   };
 
   const renderAppointmentDetailsModal = () => {
@@ -1678,7 +1709,13 @@ const App: React.FC = () => {
     if (editingColor) {
       const inUse = await checkColorInUse(editingColor.id);
       if (inUse) {
-        alert('Este color está siendo usado en testimonios. No se puede editar.');
+        setAlertConfig({
+          isOpen: true,
+          title: 'Acción no permitida',
+          message: 'Este color está siendo usado en testimonios. No se puede editar.',
+          isAlertOnly: true,
+          confirmText: 'Aceptar'
+        });
         return;
       }
       setAlertConfig({
@@ -1714,7 +1751,13 @@ const App: React.FC = () => {
   const handleDeleteColor = async (color: ColorCorporativo) => {
     const inUse = await checkColorInUse(color.id);
     if (inUse) {
-      alert(`El color "${color.nombre}" está siendo usado en testimonios. No se puede eliminar hasta que se desvincule.`);
+      setAlertConfig({
+        isOpen: true,
+        title: 'Acción no permitida',
+        message: `El color "${color.nombre}" está siendo usado en testimonios. No se puede eliminar hasta que se desvincule.`,
+        isAlertOnly: true,
+        confirmText: 'Aceptar'
+      });
       return;
     }
     setAlertConfig({
