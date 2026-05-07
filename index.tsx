@@ -42,7 +42,7 @@ import {
   Palette
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
-import { AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado } from './types';
+import { AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado, MensajeWsp } from './types';
 
 // Configuración de Supabase proporcionada por el usuario
 const SUPABASE_URL = 'https://jtrugvxgztnxbhwjtiou.supabase.co';
@@ -203,6 +203,16 @@ const App: React.FC = () => {
   const [uploadingFilial, setUploadingFilial] = useState(false);
   const filialFileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Estados para Mensajes WSP
+  const [mensajesWsp, setMensajesWsp] = useState<MensajeWsp[]>([]);
+  const [isMensajesModalOpen, setIsMensajesModalOpen] = useState(false);
+  const [isEditMensajeOpen, setIsEditMensajeOpen] = useState(false);
+  const [editingMensaje, setEditingMensaje] = useState<MensajeWsp | null>(null);
+  const [availableFiliales, setAvailableFiliales] = useState<Filial[]>([]);
+  const [selectedFiliales, setSelectedFiliales] = useState<Filial[]>([]);
+  const [draggingItem, setDraggingItem] = useState<{ id: number, nombre: string, source: string } | null>(null);
+  const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
+
   // Adjuster state
   const [isAjusteOpen, setIsAjusteOpen] = useState(false);
   const [ajustePosX, setAjustePosX] = useState(50);
@@ -262,7 +272,7 @@ const App: React.FC = () => {
     else setRefreshing(true);
 
     try {
-      const [alRes, filRes, appRes, apoRes, histRes, colorRes, c02Res] = await Promise.all([
+      const [alRes, filRes, appRes, apoRes, histRes, colorRes, c02Res, msgRes] = await Promise.all([
         supabase.from('alumnos').select('*').order('creado_en', { ascending: false }),
         supabase.from('filiales').select('*').order('nombre', { ascending: true }),
         supabase.from('citas').select(`
@@ -273,13 +283,15 @@ const App: React.FC = () => {
         supabase.from('apoderados').select('*').order('creado_en', { ascending: false }),
         supabase.from('historias_transformacion').select('*').order('orden', { ascending: true }),
         supabase.from('colores_corporativos').select('*').eq('activo', true).order('nombre', { ascending: true }),
-        supabase.from('carrusel_02_imagenes').select('*').order('orden', { ascending: true })
+        supabase.from('carrusel_02_imagenes').select('*').order('orden', { ascending: true }),
+        supabase.from('mensajes_wsp').select('*').order('created_at', { ascending: false })
       ]);
 
       if (alRes.error) console.error('[FETCH] Error alumnos:', alRes.error.message);
       if (filRes.error) console.error('[FETCH] Error filiales:', filRes.error.message);
       if (appRes.error) console.error('[FETCH] Error citas:', appRes.error.message);
       if (apoRes.error) console.error('[FETCH] Error apoderados:', apoRes.error.message);
+      if (msgRes.error) console.error('[FETCH] Error mensajes wsp:', msgRes.error.message);
 
       if (alRes.data) setAlumnos(alRes.data);
       if (filRes.data) setFiliales(filRes.data);
@@ -287,6 +299,7 @@ const App: React.FC = () => {
       if (histRes.data) setHistorias(histRes.data);
       if (colorRes.data) setColoresCorporativos(colorRes.data);
       if (c02Res.data) setCarrusel02(c02Res.data);
+      if (msgRes.data) setMensajesWsp(msgRes.data);
       if (appRes.data) {
         const transformedApps = appRes.data.map((a: any) => {
           // Manejo robusto: Supabase puede devolver un objeto o un array si la relación es 1:N (aunque sea FK)
@@ -593,6 +606,176 @@ const App: React.FC = () => {
     setFilialScale(1.0);
     setIsFilialAjusteOpen(false);
     if (filialFileInputRef.current) filialFileInputRef.current.value = '';
+  };
+
+  // --- Handlers Mensajes WSP ---
+
+  const openMensajesGestor = () => {
+    setIsMensajesModalOpen(true);
+  };
+
+  const openNewMensaje = () => {
+    const freeFiliales = filiales.filter(f => f.id_mensaje_wsp === null);
+    if (freeFiliales.length === 0 && filiales.length > 0) {
+      setAlertConfig({
+        isOpen: true,
+        title: 'Límite Alcanzado',
+        message: 'Todas las filiales ya tienen un mensaje asignado. No puedes crear nuevos mensajes hasta liberar alguna.',
+        confirmText: 'Entendido',
+        isAlertOnly: true,
+        onConfirm: () => setAlertConfig(null)
+      });
+      return;
+    }
+    setEditingMensaje(null);
+    setAvailableFiliales(freeFiliales);
+    setSelectedFiliales([]);
+    setIsEditMensajeOpen(true);
+  };
+
+  const openEditMensaje = (msg: MensajeWsp) => {
+    setEditingMensaje(msg);
+    const assigned = filiales.filter(f => f.id_mensaje_wsp === msg.id);
+    const free = filiales.filter(f => f.id_mensaje_wsp === null);
+    setSelectedFiliales(assigned);
+    setAvailableFiliales(free);
+    setIsEditMensajeOpen(true);
+  };
+
+  const handleDeleteMensaje = (msg: MensajeWsp) => {
+    setAlertConfig({
+      isOpen: true,
+      title: 'Eliminar Mensaje',
+      message: `¿Seguro que deseas eliminar el mensaje "${msg.titulo}"? Las filiales asociadas quedarán sin mensaje.`,
+      confirmText: 'Eliminar',
+      isDestructive: true,
+      onConfirm: async () => {
+        const { error } = await supabase.from('mensajes_wsp').delete().eq('id', msg.id);
+        if (!error) {
+          setMensajesWsp(prev => prev.filter(m => m.id !== msg.id));
+          setFiliales(prev => prev.map(f => f.id_mensaje_wsp === msg.id ? { ...f, id_mensaje_wsp: null } : f));
+        } else {
+          alert('Error al eliminar mensaje: ' + error.message);
+        }
+      }
+    });
+  };
+
+  const handleSaveMensaje = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const titulo = fd.get('titulo') as string;
+    const contenido = fd.get('contenido') as string;
+
+    const payload = { titulo, contenido };
+
+    setAlertConfig({
+      isOpen: true,
+      title: editingMensaje ? 'Guardar Cambios' : 'Crear Mensaje',
+      message: `¿Estás seguro de ${editingMensaje ? 'actualizar' : 'crear'} este mensaje y asignar las filiales seleccionadas?`,
+      confirmText: 'Guardar',
+      onConfirm: async () => {
+        let msgId = editingMensaje?.id;
+
+        if (editingMensaje) {
+          const { error } = await supabase.from('mensajes_wsp').update(payload).eq('id', msgId);
+          if (error) { alert('Error actualizando mensaje: ' + error.message); return; }
+          setMensajesWsp(prev => prev.map(m => m.id === msgId ? { ...m, ...payload } : m));
+        } else {
+          const { data, error } = await supabase.from('mensajes_wsp').insert([payload]).select().single();
+          if (error) { alert('Error creando mensaje: ' + error.message); return; }
+          msgId = data.id;
+          setMensajesWsp([data, ...mensajesWsp]);
+        }
+
+        const previouslyAssigned = filiales.filter(f => f.id_mensaje_wsp === msgId);
+        const removedFiliales = previouslyAssigned.filter(pa => !selectedFiliales.some(sf => sf.id === pa.id));
+        const newFiliales = selectedFiliales.filter(sf => sf.id_mensaje_wsp !== msgId);
+
+        if (removedFiliales.length > 0) {
+          const removedIds = removedFiliales.map(f => f.id);
+          await supabase.from('filiales').update({ id_mensaje_wsp: null }).in('id', removedIds);
+        }
+        if (newFiliales.length > 0) {
+          const newIds = newFiliales.map(f => f.id);
+          await supabase.from('filiales').update({ id_mensaje_wsp: msgId }).in('id', newIds);
+        }
+
+        setFiliales(prev => prev.map(f => {
+          if (removedFiliales.some(rf => rf.id === f.id)) return { ...f, id_mensaje_wsp: null };
+          if (selectedFiliales.some(sf => sf.id === f.id)) return { ...f, id_mensaje_wsp: msgId as number };
+          return f;
+        }));
+
+        setIsEditMensajeOpen(false);
+      }
+    });
+  };
+
+  const onDragStartMensaje = (e: React.DragEvent, filial: Filial, source: 'available' | 'selected') => {
+    // Esconder la imagen por defecto
+    const emptyImg = new Image();
+    emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(emptyImg, 0, 0);
+
+    e.dataTransfer.setData('filialId', filial.id.toString());
+    e.dataTransfer.setData('source', source);
+    e.dataTransfer.effectAllowed = 'move';
+
+    setDraggingItem({ id: filial.id, nombre: filial.nombre, source });
+    setDragPos({ x: e.clientX, y: e.clientY });
+
+    const target = e.currentTarget as HTMLElement;
+    setTimeout(() => {
+      target.classList.add('opacity-30', 'border-dashed');
+    }, 0);
+  };
+
+  const onDragMensaje = (e: React.DragEvent) => {
+    if (e.clientX === 0 && e.clientY === 0) return; // Ignorar el último evento en 0,0
+    setDragPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const onDragEndMensaje = (e: React.DragEvent) => {
+    setDraggingItem(null);
+    const target = e.currentTarget as HTMLElement;
+    target.classList.remove('opacity-30', 'border-dashed');
+  };
+
+  const onDragOverMensaje = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const onDropMensaje = (e: React.DragEvent, target: 'available' | 'selected') => {
+    const filialId = parseInt(e.dataTransfer.getData('filialId'));
+    const source = e.dataTransfer.getData('source');
+
+    if (source === target) return;
+
+    let filial: Filial | undefined;
+    if (source === 'available') {
+      filial = availableFiliales.find(f => f.id === filialId);
+      if (filial) {
+        setAvailableFiliales(prev => prev.filter(f => f.id !== filialId));
+        setSelectedFiliales(prev => [...prev, filial!]);
+      }
+    } else {
+      filial = selectedFiliales.find(f => f.id === filialId);
+      if (filial) {
+        setSelectedFiliales(prev => prev.filter(f => f.id !== filialId));
+        setAvailableFiliales(prev => [...prev, filial!]);
+      }
+    }
+  };
+
+  const selectAllFilialesMensaje = () => {
+    setSelectedFiliales(prev => [...prev, ...availableFiliales]);
+    setAvailableFiliales([]);
+  };
+
+  const deselectAllFilialesMensaje = () => {
+    setAvailableFiliales(prev => [...prev, ...selectedFiliales]);
+    setSelectedFiliales([]);
   };
 
   // --- Handlers de Reprogramación ---
@@ -1068,8 +1251,19 @@ const App: React.FC = () => {
     );
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map(filial => (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-3xl border border-slate-200 shadow-sm gap-4">
+          <div>
+            <h3 className="text-xl font-bold text-slate-800">Sedes y Sucursales</h3>
+            <p className="text-sm text-slate-500 mt-1">Gestiona los locales y sus mensajes predeterminados</p>
+          </div>
+          <button onClick={openMensajesGestor} className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-100 transition-colors shadow-sm">
+            <Sparkles size={18} /> Gestionar Mensajes WhatsApp
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map(filial => (
           <div key={filial.id} className="glass-card rounded-3xl p-6 border border-slate-200 relative overflow-hidden group flex flex-col h-full">
             <div className={`absolute top-0 right-0 px-4 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest ${filial.activo ? 'bg-emerald-500 text-white' : 'bg-slate-400 text-white'}`}>
               {filial.activo ? 'Activa' : 'Inactiva'}
@@ -1134,6 +1328,7 @@ const App: React.FC = () => {
           <span className="font-bold">Agregar Nueva Filial</span>
           <p className="text-xs font-medium max-w-[150px] text-center mt-1">Registra un nuevo centro de operaciones</p>
         </button>
+        </div>
       </div>
     );
   };
@@ -3088,6 +3283,137 @@ const App: React.FC = () => {
             </form>
           )}
         </Modal>
+
+        {/* Modales de Mensajes WSP */}
+        <Modal isOpen={isMensajesModalOpen} onClose={() => setIsMensajesModalOpen(false)} title="Mensajes de WhatsApp">
+          <div className="flex justify-between items-center mb-6">
+            <p className="text-sm text-slate-500">Plantillas para el botón de contacto web.</p>
+            <button onClick={openNewMensaje} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-200">
+              <Plus size={16} /> Crear Mensaje
+            </button>
+          </div>
+          {mensajesWsp.length === 0 ? (
+            <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+              <Sparkles className="mx-auto text-slate-300 mb-2" size={32} />
+              <p className="text-slate-500 font-bold">No hay mensajes creados</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              {mensajesWsp.map(msg => (
+                <div key={msg.id} className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col gap-2 group">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-bold text-slate-800 text-sm">{msg.titulo}</h4>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEditMensaje(msg)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><Edit size={14} /></button>
+                      <button onClick={() => handleDeleteMensaje(msg)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500 italic line-clamp-2">"{msg.contenido}"</p>
+                  <div className="text-[10px] font-bold text-slate-400 mt-1">
+                    {filiales.filter(f => f.id_mensaje_wsp === msg.id).length} filial(es) asignada(s)
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal>
+
+        <Modal isOpen={isEditMensajeOpen} onClose={() => setIsEditMensajeOpen(false)} title={editingMensaje ? "Editar Mensaje WhatsApp" : "Nuevo Mensaje WhatsApp"}>
+          <form onSubmit={handleSaveMensaje} className="space-y-5">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Título / Indicador</label>
+              <input type="text" name="titulo" defaultValue={editingMensaje?.titulo} required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Promoción Chiclayo" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Contenido del Mensaje</label>
+              <textarea name="contenido" defaultValue={editingMensaje?.contenido} required rows={3} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm text-sm" placeholder="Hola, deseo información sobre..." />
+            </div>
+            
+            <div>
+              <div className="flex justify-between items-end mb-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Asignar Filiales</label>
+                {availableFiliales.length > 0 && (
+                  <button type="button" onClick={selectAllFilialesMensaje} className="text-[10px] font-bold text-emerald-600 hover:underline">Seleccionar Todas</button>
+                )}
+                {selectedFiliales.length > 0 && availableFiliales.length === 0 && (
+                  <button type="button" onClick={deselectAllFilialesMensaje} className="text-[10px] font-bold text-rose-500 hover:underline">Quitar Todas</button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4 h-[250px]">
+                {/* Disponibles */}
+                <div 
+                  className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 p-2 overflow-y-auto"
+                  onDragOver={onDragOverMensaje}
+                  onDrop={(e) => onDropMensaje(e, 'available')}
+                >
+                  <p className="text-[10px] font-bold text-slate-400 text-center uppercase mb-2 sticky top-0 bg-slate-50 py-1">Disponibles</p>
+                  <div className="space-y-2">
+                    {availableFiliales.map(f => (
+                      <div 
+                        key={f.id} 
+                        draggable
+                        onDragStart={(e) => onDragStartMensaje(e, f, 'available')}
+                        onDrag={onDragMensaje}
+                        onDragEnd={onDragEndMensaje}
+                        className="p-2 bg-white rounded-xl border border-slate-100 shadow-sm text-xs font-bold text-slate-700 cursor-move hover:border-emerald-300 transition-colors flex items-center gap-2"
+                      >
+                        <GripVertical size={14} className="text-slate-300 flex-shrink-0" />
+                        <span className="truncate">{f.nombre}</span>
+                      </div>
+                    ))}
+                    {availableFiliales.length === 0 && (
+                      <p className="text-[10px] text-slate-400 text-center py-4 italic">No hay filiales libres</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Seleccionadas */}
+                <div 
+                  className="bg-emerald-50/50 rounded-2xl border-2 border-dashed border-emerald-200 p-2 overflow-y-auto"
+                  onDragOver={onDragOverMensaje}
+                  onDrop={(e) => onDropMensaje(e, 'selected')}
+                >
+                  <p className="text-[10px] font-bold text-emerald-600 text-center uppercase mb-2 sticky top-0 bg-emerald-50/90 py-1">Asignadas</p>
+                  <div className="space-y-2">
+                    {selectedFiliales.map(f => (
+                      <div 
+                        key={f.id} 
+                        draggable
+                        onDragStart={(e) => onDragStartMensaje(e, f, 'selected')}
+                        onDrag={onDragMensaje}
+                        onDragEnd={onDragEndMensaje}
+                        className="p-2 bg-white rounded-xl border border-emerald-200 shadow-sm text-xs font-bold text-emerald-800 cursor-move hover:border-rose-300 hover:bg-rose-50 transition-colors flex items-center gap-2"
+                      >
+                        <GripVertical size={14} className="text-emerald-300 flex-shrink-0" />
+                        <span className="truncate">{f.nombre}</span>
+                      </div>
+                    ))}
+                    {selectedFiliales.length === 0 && (
+                      <p className="text-[10px] text-emerald-600/70 text-center py-4 italic">Arrastra filiales aquí</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2 text-center">Arrastra las filiales de un lado a otro para asignarlas.</p>
+            </div>
+
+            <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs btn-glow mt-2">
+              Guardar Mensaje
+            </button>
+          </form>
+
+          {/* Custom Drag Overlay */}
+          {draggingItem && (
+            <div 
+              className="fixed pointer-events-none z-[9999] p-2 bg-white rounded-xl border-2 border-emerald-500 shadow-2xl text-xs font-black text-slate-800 flex items-center gap-2 transform -translate-x-1/2 -translate-y-1/2 scale-105"
+              style={{ left: dragPos.x, top: dragPos.y }}
+            >
+              <GripVertical size={14} className="text-emerald-500" />
+              <span>{draggingItem.nombre}</span>
+            </div>
+          )}
+        </Modal>
+
         <ConfirmAlert config={alertConfig} onClose={() => setAlertConfig(null)} />
       </main>
     </div >

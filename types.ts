@@ -36,6 +36,14 @@ export interface Filial {
   file_path?: string | null;
   foto_position?: string | null;
   foto_scale?: number | null;
+  id_mensaje_wsp?: number | null;
+}
+
+export interface MensajeWsp {
+  id: number;
+  titulo: string;
+  contenido: string;
+  created_at: string;
 }
 
 export interface Appointment {
