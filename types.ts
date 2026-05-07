@@ -33,6 +33,9 @@ export interface Filial {
   telefono_movil: string;
   activo: boolean;
   created_at: string;
+  file_path?: string | null;
+  foto_position?: string | null;
+  foto_scale?: number | null;
 }
 
 export interface Appointment {

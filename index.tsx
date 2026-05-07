@@ -193,6 +193,16 @@ const App: React.FC = () => {
   const [carrusel02Scale, setCarrusel02Scale] = useState(1.0);
   const [isCarrusel02AjusteOpen, setIsCarrusel02AjusteOpen] = useState(false);
 
+  // Estados para imagen de Filial
+  const [filialFile, setFilialFile] = useState<File | null>(null);
+  const [filialPreview, setFilialPreview] = useState<string | null>(null);
+  const [filialPosX, setFilialPosX] = useState(50);
+  const [filialPosY, setFilialPosY] = useState(50);
+  const [filialScale, setFilialScale] = useState(1.0);
+  const [isFilialAjusteOpen, setIsFilialAjusteOpen] = useState(false);
+  const [uploadingFilial, setUploadingFilial] = useState(false);
+  const filialFileInputRef = React.useRef<HTMLInputElement>(null);
+
   // Adjuster state
   const [isAjusteOpen, setIsAjusteOpen] = useState(false);
   const [ajustePosX, setAjustePosX] = useState(50);
@@ -445,7 +455,10 @@ const App: React.FC = () => {
   // --- Handlers de Filiales ---
 
   const handleAddOrUpdateFilial = async (data: any) => {
-    const payload = {
+    const foto_position = `${filialPosX}% ${filialPosY}%`;
+    const foto_scale = filialScale;
+
+    const payloadBase = {
       nombre: data.nombre,
       departamento: data.departamento,
       provincia: data.provincia,
@@ -454,7 +467,31 @@ const App: React.FC = () => {
       referencia: data.referencia,
       telefono_fijo: data.telefono_fijo,
       telefono_movil: data.telefono_movil,
-      activo: editingItem ? (data.activo === 'on' || data.activo === true) : true
+      activo: editingItem ? (data.activo === 'on' || data.activo === true) : true,
+      foto_position: foto_position,
+      foto_scale: foto_scale
+    };
+
+    const uploadImageIfNecessary = async (): Promise<string | null | undefined> => {
+      if (!filialFile) return undefined; // No new file
+      setUploadingFilial(true);
+      const fileExt = filialFile.name.split('.').pop();
+      const safeName = data.nombre.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const fileName = `${safeName}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('Filiales')
+        .upload(fileName, filialFile);
+
+      setUploadingFilial(false);
+
+      if (uploadError) {
+        alert("Error al subir imagen de filial: " + uploadError.message);
+        throw new Error(uploadError.message);
+      }
+      
+      const { data: publicUrlData } = supabase.storage.from('Filiales').getPublicUrl(fileName);
+      return publicUrlData.publicUrl;
     };
 
     if (editingItem) {
@@ -464,23 +501,41 @@ const App: React.FC = () => {
         message: `¿Guardar los cambios en "${data.nombre}"?`,
         confirmText: 'Guardar',
         onConfirm: async () => {
-          const { data: updated, error } = await supabase.from('filiales').update(payload).eq('id', editingItem.id).select().single();
-          if (!error && updated) {
-            setFiliales(prev => prev.map(f => f.id === updated.id ? updated : f));
-            setEditingItem(null);
-            setIsModalOpen(false);
-          } else {
-            alert("Error al actualizar filial: " + error?.message);
+          try {
+            const newFilePath = await uploadImageIfNecessary();
+            const payload = { 
+              ...payloadBase, 
+              file_path: newFilePath !== undefined ? newFilePath : editingItem.file_path || null 
+            };
+            const { data: updated, error } = await supabase.from('filiales').update(payload).eq('id', editingItem.id).select().single();
+            if (!error && updated) {
+              setFiliales(prev => prev.map(f => f.id === updated.id ? updated : f));
+              setEditingItem(null);
+              setIsModalOpen(false);
+            } else {
+              alert("Error al actualizar filial: " + error?.message);
+            }
+          } catch (e) {
+            // Error ya manejado en uploadImageIfNecessary
           }
         }
       });
     } else {
-      const { data: created, error } = await supabase.from('filiales').insert([payload]).select().single();
-      if (!error && created) {
-        setFiliales([created, ...filiales]);
-        setIsModalOpen(false);
-      } else {
-        alert("Error al crear filial: " + error?.message);
+      try {
+        const newFilePath = await uploadImageIfNecessary();
+        const payload = { 
+          ...payloadBase, 
+          file_path: newFilePath || null 
+        };
+        const { data: created, error } = await supabase.from('filiales').insert([payload]).select().single();
+        if (!error && created) {
+          setFiliales([created, ...filiales]);
+          setIsModalOpen(false);
+        } else {
+          alert("Error al crear filial: " + error?.message);
+        }
+      } catch (e) {
+        // Error ya manejado
       }
     }
   };
@@ -513,6 +568,31 @@ const App: React.FC = () => {
   const openEditFilial = (filial: Filial) => {
     setEditingItem(filial);
     setIsModalOpen(true);
+    setFilialFile(null);
+    setFilialPreview(filial.file_path || null);
+    if (filial.foto_position) {
+      const parts = filial.foto_position.split(' ');
+      setFilialPosX(parseFloat(parts[0]) || 50);
+      setFilialPosY(parseFloat(parts[1]) || 50);
+    } else {
+      setFilialPosX(50);
+      setFilialPosY(50);
+    }
+    setFilialScale(filial.foto_scale ?? 1.0);
+    setIsFilialAjusteOpen(false);
+    if (filialFileInputRef.current) filialFileInputRef.current.value = '';
+  };
+
+  const openNewFilial = () => {
+    setEditingItem(null);
+    setIsModalOpen(true);
+    setFilialFile(null);
+    setFilialPreview(null);
+    setFilialPosX(50);
+    setFilialPosY(50);
+    setFilialScale(1.0);
+    setIsFilialAjusteOpen(false);
+    if (filialFileInputRef.current) filialFileInputRef.current.value = '';
   };
 
   // --- Handlers de Reprogramación ---
@@ -1047,7 +1127,7 @@ const App: React.FC = () => {
             </div>
           </div>
         ))}
-        <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="rounded-3xl border-2 border-dashed border-slate-200 p-6 flex flex-col items-center justify-center text-slate-400 hover:border-emerald-200 hover:text-emerald-600 transition-all group h-[320px]">
+        <button onClick={openNewFilial} className="rounded-3xl border-2 border-dashed border-slate-200 p-6 flex flex-col items-center justify-center text-slate-400 hover:border-emerald-200 hover:text-emerald-600 transition-all group h-[320px]">
           <div className="p-3 bg-slate-50 rounded-full group-hover:bg-emerald-50 transition-colors mb-2">
             <Plus size={24} />
           </div>
@@ -2833,6 +2913,127 @@ const App: React.FC = () => {
               const fd = new FormData(e.currentTarget);
               handleAddOrUpdateFilial(Object.fromEntries(fd));
             }} className="space-y-4">
+              {/* Imagen Filial */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  {editingItem ? 'Imagen (opcional — reemplaza la actual)' : 'Imagen (opcional)'}
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={filialFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setFilialFile(f);
+                        setFilialPreview(URL.createObjectURL(f));
+                        setFilialPosX(50); setFilialPosY(50); setFilialScale(1.0);
+                        setIsFilialAjusteOpen(false);
+                      }
+                    }}
+                    className="flex-1 text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                  />
+                  {filialFile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilialFile(null);
+                        setFilialPreview(editingItem?.file_path || null);
+                        if (filialFileInputRef.current) filialFileInputRef.current.value = '';
+                      }}
+                      title="Quitar imagen seleccionada"
+                      className="flex-shrink-0 p-2 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors border border-rose-100"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                  {filialPreview && (
+                    <button
+                      type="button"
+                      onClick={() => setIsFilialAjusteOpen(v => !v)}
+                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${isFilialAjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                    >
+                      {isFilialAjusteOpen ? 'Cerrar' : '✦ Ajustar'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview estático */}
+              {filialPreview && !isFilialAjusteOpen && (
+                <div className="w-full rounded-2xl overflow-hidden border border-slate-100 shadow-sm" style={{ aspectRatio: '2/1' }}>
+                  <img
+                    src={filialPreview}
+                    alt="Vista previa"
+                    draggable={false}
+                    className="w-full h-full"
+                    style={{
+                      objectFit: 'cover',
+                      objectPosition: `${filialPosX}% ${filialPosY}%`,
+                      transform: `scale(${filialScale})`,
+                      transformOrigin: `${filialPosX}% ${filialPosY}%`,
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Ajustador interactivo */}
+              {filialPreview && isFilialAjusteOpen && (
+                <div className="rounded-2xl border-2 border-slate-800 overflow-hidden shadow-xl">
+                  <div
+                    className="relative w-full select-none cursor-crosshair"
+                    style={{ aspectRatio: '2/1', overflow: 'hidden', background: '#0f172a' }}
+                    onMouseMove={(e) => {
+                      if (e.buttons !== 1) return;
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setFilialPosX(Math.round(Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100))));
+                      setFilialPosY(Math.round(Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100))));
+                    }}
+                    onTouchMove={(e) => {
+                      e.preventDefault();
+                      const t = e.touches[0];
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setFilialPosX(Math.round(Math.max(0, Math.min(100, ((t.clientX - r.left) / r.width) * 100))));
+                      setFilialPosY(Math.round(Math.max(0, Math.min(100, ((t.clientY - r.top) / r.height) * 100))));
+                    }}
+                  >
+                    <img
+                      src={filialPreview}
+                      alt="Ajuste"
+                      draggable={false}
+                      className="w-full h-full pointer-events-none opacity-60"
+                      style={{
+                        objectFit: 'cover',
+                        objectPosition: `${filialPosX}% ${filialPosY}%`,
+                        transform: `scale(${filialScale})`,
+                        transformOrigin: `${filialPosX}% ${filialPosY}%`,
+                      }}
+                    />
+                    <div className="absolute inset-0 pointer-events-none border border-white/20">
+                      <div className="absolute inset-x-0 top-1/3 border-t border-white/20"></div>
+                      <div className="absolute inset-x-0 top-2/3 border-t border-white/20"></div>
+                      <div className="absolute inset-y-0 left-1/3 border-l border-white/20"></div>
+                      <div className="absolute inset-y-0 left-2/3 border-l border-white/20"></div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800 p-4 text-white">
+                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 block flex justify-between">
+                      <span>Zoom: {filialScale.toFixed(1)}x</span>
+                      <span>Pos: {filialPosX}% {filialPosY}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="1" max="3" step="0.1"
+                      value={filialScale}
+                      onChange={(e) => setFilialScale(parseFloat(e.target.value))}
+                      className="w-full accent-emerald-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-2 text-center">Arrastra la imagen en el recuadro para centrarla</p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nombre de la Filial</label>
                 <input type="text" name="nombre" defaultValue={editingItem?.nombre} required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Filial Norte" />
@@ -2881,8 +3082,8 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all mt-4 btn-glow uppercase tracking-widest text-xs">
-                {editingItem ? 'Actualizar en DB' : 'Crear en DB'}
+              <button disabled={uploadingFilial} type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all mt-4 btn-glow uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed">
+                {uploadingFilial ? 'Subiendo imagen...' : (editingItem ? 'Actualizar en DB' : 'Crear en DB')}
               </button>
             </form>
           )}
