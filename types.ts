@@ -54,6 +54,8 @@ export interface Appointment {
   hora_cita: string;
   estado: AppointmentStatus;
   created_at: string;
+  creado_en?: string | null;
+  tipo_persona?: string | null;
   // Join data for UI convenience
   alumno_nombre?: string;
   filial_nombre?: string;

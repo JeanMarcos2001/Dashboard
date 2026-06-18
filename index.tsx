@@ -39,7 +39,8 @@ import {
   GripVertical,
   Upload,
   Images,
-  Palette
+  Palette,
+  MessageCircle
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado, MensajeWsp } from './types';
@@ -313,6 +314,17 @@ const App: React.FC = () => {
             filial_nombre: filialData?.nombre || 'Sin sede'
           };
         });
+        
+        // Ordenar por defecto empezando de la última que llegó (creado_en desc, fallback id desc)
+        transformedApps.sort((a: any, b: any) => {
+          const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
+          const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
+          if (timeA !== timeB) {
+            return timeB - timeA;
+          }
+          return b.id - a.id;
+        });
+        
         setAppointments(transformedApps);
       }
     } catch (error) {
@@ -375,13 +387,17 @@ const App: React.FC = () => {
   };
 
   const handleAddAppointment = async (newApp: any) => {
+    const student = alumnos.find(al => al.id === Number(newApp.id_alumno));
+    const esIndependiente = student ? !student.id_apoderado : (newApp.tipo_persona === 'independiente');
+
     const payload = {
       id_alumno: Number(newApp.id_alumno),
       id_filial: Number(newApp.id_filial),
       fecha_cita: newApp.fecha_cita,
       hora_cita: newApp.hora_cita,
-      tipo_persona: newApp.tipo_persona || 'dependiente',
-      estado: AppointmentStatus.PENDING
+      tipo_persona: esIndependiente ? 'independiente' : 'dependiente',
+      estado: AppointmentStatus.PENDING,
+      creado_en: new Date().toISOString()
     };
 
     const { data, error } = await supabase
@@ -400,7 +416,16 @@ const App: React.FC = () => {
         alumno_nombre: data.alumnos?.nombre_completo,
         filial_nombre: data.filiales?.nombre
       };
-      setAppointments([transformed, ...appointments]);
+      
+      setAppointments(prev => [transformed, ...prev].sort((a: any, b: any) => {
+        const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
+        const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+        return b.id - a.id;
+      }));
+      
       setIsModalOpen(false);
     } else {
       alert("Error al crear la cita: " + (error?.message || "Error desconocido"));
@@ -858,6 +883,15 @@ const App: React.FC = () => {
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   };
 
+  const cleanPhoneNumberForWhatsapp = (phone: string | undefined | null) => {
+    if (!phone) return '';
+    let cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 9) {
+      cleaned = '51' + cleaned;
+    }
+    return cleaned;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc]">
@@ -887,20 +921,41 @@ const App: React.FC = () => {
             </button>
           </div>
           <div className="space-y-4">
-            {appointments.length > 0 ? appointments.slice(0, 4).map(app => (
-              <div key={app.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 group hover:border-emerald-200 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-emerald-600 font-bold border border-slate-100">
-                    {app.alumno_nombre?.[0] || 'A'}
+            {appointments.length > 0 ? appointments.slice(0, 4).map(app => {
+              const al = alumnos.find(a => a.id === app.id_alumno);
+              const isIndependiente = app.tipo_persona === 'independiente' || !al?.id_apoderado;
+              const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
+              return (
+                <div key={app.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 group hover:border-emerald-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-emerald-600 font-bold border border-slate-100">
+                      {app.alumno_nombre?.[0] || 'A'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
+                        {isNew && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
+                            Nuevo
+                          </span>
+                        )}
+                        {isIndependiente ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
+                            Ind.
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200">
+                            Apod.
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 font-medium mt-1.5">{app.fecha_cita} • {app.hora_cita}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-800">{app.alumno_nombre}</p>
-                    <p className="text-xs text-slate-400 font-medium">{app.fecha_cita} • {app.hora_cita}</p>
-                  </div>
+                  <StatusBadge status={app.estado} />
                 </div>
-                <StatusBadge status={app.estado} />
-              </div>
-            )) : <p className="text-center text-slate-400 py-10 font-medium italic">No hay actividad reciente</p>}
+              );
+            }) : <p className="text-center text-slate-400 py-10 font-medium italic">No hay actividad reciente</p>}
           </div>
         </div>
 
@@ -1141,37 +1196,58 @@ const App: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {filtered.length > 0 ? filtered.map(app => (
-                <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-5">
-                    <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">ID: {app.id_alumno}</p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2 text-slate-600 font-bold text-sm">
-                      <MapPin size={14} className="text-emerald-500" />
-                      {app.filial_nombre}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="text-sm font-black text-slate-700 capitalize">{formatFriendlyDate(app.fecha_cita)}</div>
-                    <div className="text-[11px] text-emerald-600 font-black bg-emerald-50 inline-block px-1.5 rounded mt-1 shadow-sm border border-emerald-100">{app.hora_cita}</div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex justify-center">
-                      <StatusBadge status={app.estado} />
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <button
-                      onClick={() => openAppointmentDetails(app)}
-                      className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded-xl font-bold text-xs flex items-center gap-2 ml-auto transition-all"
-                    >
-                      <Eye size={16} /> Ver Cita
-                    </button>
-                  </td>
-                </tr>
-              )) : (
+              {filtered.length > 0 ? filtered.map(app => {
+                const al = alumnos.find(a => a.id === app.id_alumno);
+                const isIndependiente = app.tipo_persona === 'independiente' || !al?.id_apoderado;
+                const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
+                return (
+                  <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
+                        {isNew && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm shadow-amber-200 animate-pulse">
+                            <Sparkles size={9} /> Nuevo
+                          </span>
+                        )}
+                        {isIndependiente ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+                            Independiente
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
+                            Con Apoderado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase">ID: {app.id_alumno}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-slate-600 font-bold text-sm">
+                        <MapPin size={14} className="text-emerald-500" />
+                        {app.filial_nombre}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="text-sm font-black text-slate-700 capitalize">{formatFriendlyDate(app.fecha_cita)}</div>
+                      <div className="text-[11px] text-emerald-600 font-black bg-emerald-50 inline-block px-1.5 rounded mt-1 shadow-sm border border-emerald-100">{app.hora_cita}</div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex justify-center">
+                        <StatusBadge status={app.estado} />
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <button
+                        onClick={() => openAppointmentDetails(app)}
+                        className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded-xl font-bold text-xs flex items-center gap-2 ml-auto transition-all"
+                      >
+                        <Eye size={16} /> Ver Cita
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }) : (
                 <tr>
                   <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
                     No se encontraron registros de citas
@@ -1582,6 +1658,7 @@ const App: React.FC = () => {
 
     const alumnoDetalle = alumnos.find(a => a.id === detailsAppointment.id_alumno);
     const apoderadoDetalle = alumnoDetalle ? apoderados.find(apo => apo.id === alumnoDetalle.id_apoderado) : null;
+    const isIndependiente = detailsAppointment.tipo_persona === 'independiente' || !alumnoDetalle?.id_apoderado;
 
     // Calendar logic for reprogramming (reusing existing helpers)
     const { days, firstDay } = getDaysInMonth(currentCalendarDate);
@@ -1647,50 +1724,74 @@ const App: React.FC = () => {
 
             {/* Información del Contacto según tipo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-2 mb-3 text-slate-400 font-black text-[10px] uppercase tracking-widest">
-                  <User size={14} /> Datos del Alumno
+              <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-3 text-slate-400 font-black text-[10px] uppercase tracking-widest">
+                    <User size={14} /> Datos del Alumno
+                  </div>
+                  <p className="text-xl font-bold text-slate-800">{detailsAppointment.alumno_nombre}</p>
+                  <div className="mt-3 space-y-2 text-xs font-bold text-slate-500">
+                    <p>• Edad: <span className="font-extrabold text-slate-700">{alumnoDetalle ? `${alumnoDetalle.edad} años` : 'No especificada'}</span></p>
+                    <p>• ID Alumno: <span className="font-extrabold text-slate-700">{detailsAppointment.id_alumno}</span></p>
+                  </div>
                 </div>
-                <p className="text-lg font-bold text-slate-800">{detailsAppointment.alumno_nombre}</p>
-                {detailsAppointment.tipo_persona === 'independiente' ? (
-                  <div className="mt-2 flex items-center gap-2 text-xl font-black text-slate-700">
-                    <Phone size={18} className="text-emerald-500" />
-                    {alumnoDetalle?.telefono || 'Sin teléfono'}
-                  </div>
-                ) : (
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-bold uppercase tracking-widest">
-                    <Users size={13} className="text-blue-400" /> Contacto vía apoderado
-                  </div>
-                )}
-                {alumnoDetalle && (
-                  <p className="text-xs text-slate-400 mt-1">Edad: {alumnoDetalle.edad} años</p>
-                )}
-              </div>
-
-              {detailsAppointment.tipo_persona !== 'independiente' ? (
-                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                  <div className="flex items-center gap-2 mb-3 text-blue-400 font-black text-[10px] uppercase tracking-widest">
-                    <Users size={14} /> Datos del Apoderado
-                  </div>
-                  {apoderadoDetalle ? (
-                    <>
-                      <p className="text-lg font-bold text-slate-800">{apoderadoDetalle.nombre_completo}</p>
-                      <div className="mt-2 flex items-center gap-2 text-xl font-black text-slate-700">
-                        <PhoneCall size={18} className="text-blue-500" />
-                        {apoderadoDetalle.telefono}
-                      </div>
-                    </>
+                <div className="mt-4">
+                  {isIndependiente ? (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+                      Alumno Independiente
+                    </span>
                   ) : (
-                    <p className="text-sm text-slate-400 italic">Información no disponible</p>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
+                      Con Apoderado
+                    </span>
                   )}
                 </div>
-              ) : (
-                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col justify-center items-center text-center">
-                  <User size={28} className="text-emerald-400 mb-2" />
-                  <p className="text-sm font-bold text-emerald-700">Alumno Independiente</p>
-                  <p className="text-xs text-slate-400 mt-1">Sin apoderado asignado</p>
+              </div>
+
+              <div className={`p-5 rounded-3xl border flex flex-col justify-between ${
+                isIndependiente ? 'bg-emerald-50/40 border-emerald-100' : 'bg-blue-50/40 border-blue-100'
+              }`}>
+                <div>
+                  <div className={`flex items-center gap-2 mb-3 font-black text-[10px] uppercase tracking-widest ${
+                    isIndependiente ? 'text-emerald-500' : 'text-blue-500'
+                  }`}>
+                    <Phone size={14} /> Datos de Contacto
+                  </div>
+                  <p className="text-xl font-bold text-slate-800">
+                    {isIndependiente ? detailsAppointment.alumno_nombre : (apoderadoDetalle?.nombre_completo || 'Sin apoderado')}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                    {isIndependiente ? 'Contacto Directo (Alumno)' : 'Contacto Apoderado'}
+                  </p>
+                  <div className="mt-4 flex items-center gap-2 text-xl font-black text-slate-700">
+                    <Phone size={18} className={isIndependiente ? 'text-emerald-500' : 'text-blue-500'} />
+                    {isIndependiente ? (alumnoDetalle?.telefono || 'Sin teléfono') : (apoderadoDetalle?.telefono || 'Sin teléfono')}
+                  </div>
                 </div>
-              )}
+                <div className="mt-5">
+                  {((isIndependiente ? alumnoDetalle?.telefono : apoderadoDetalle?.telefono)) ? (
+                    <a
+                      href={`https://api.whatsapp.com/send?phone=${cleanPhoneNumberForWhatsapp(isIndependiente ? alumnoDetalle?.telefono : apoderadoDetalle?.telefono)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white flex items-center justify-center gap-2 shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]
+                        ${isIndependiente
+                          ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200/50'
+                          : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200/50'
+                        }`}
+                    >
+                      <MessageCircle size={16} /> Chatear por WhatsApp
+                    </a>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <XCircle size={16} /> Sin número registrado
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Fecha y Hora */}
@@ -1707,6 +1808,18 @@ const App: React.FC = () => {
                   return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
                 })()}
               </div>
+              {detailsAppointment.creado_en && (
+                <p className="text-xs text-slate-400 mt-3 font-semibold">
+                  Registrada el {new Date(detailsAppointment.creado_en).toLocaleString('es-PE', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </p>
+              )}
             </div>
 
             {/* Gestión del Estado */}
