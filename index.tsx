@@ -40,7 +40,8 @@ import {
   Upload,
   Images,
   Palette,
-  MessageCircle
+  MessageCircle,
+  Menu
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado, MensajeWsp } from './types';
@@ -163,6 +164,17 @@ const App: React.FC = () => {
   const [apoderados, setApoderados] = useState<Apoderado[]>([]);
   const [historias, setHistorias] = useState<Historia[]>([]);
   const [coloresCorporativos, setColoresCorporativos] = useState<ColorCorporativo[]>([]);
+  
+  // --- Estados de Navegación Lateral y Submenú ---
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isWebManagementOpen, setIsWebManagementOpen] = useState(false);
+
+  // Auto-abrir Gestión Web si la vista activa es de ese grupo
+  useEffect(() => {
+    if (['filiales', 'historias', 'carrusel02'].includes(activeView)) {
+      setIsWebManagementOpen(true);
+    }
+  }, [activeView]);
   
   // --- Estado Gestion Colores ---
   const [isColorManagerOpen, setIsColorManagerOpen] = useState(false);
@@ -2999,37 +3011,89 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen">
+      {/* Sidebar Backdrop Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 gradient-green text-white hidden md:flex flex-col p-6 shadow-xl sticky top-0 h-screen">
-        <div className="flex items-center gap-3 mb-10">
-          <div className="bg-white/20 p-2 rounded-lg shadow-lg">
-            <Users size={24} />
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 gradient-green text-white flex flex-col p-6 shadow-xl transition-transform duration-300 transform md:translate-x-0 md:static h-screen
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <div className="flex items-center justify-between gap-3 mb-10">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2 rounded-lg shadow-lg">
+              <Users size={24} />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight">Dashboard</h1>
           </div>
-          <h1 className="text-2xl font-black tracking-tight">DataLanding</h1>
+          {/* Close button inside sidebar (mobile only) */}
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-1.5 hover:bg-white/10 rounded-lg md:hidden text-white/80 hover:text-white transition-colors"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="space-y-1.5 flex-1">
-          <button onClick={() => setActiveView('dashboard')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'dashboard' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+          <button onClick={() => { setActiveView('dashboard'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'dashboard' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
             <Home size={22} /> Dashboard
           </button>
-          <button onClick={() => setActiveView('citas')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'citas' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+          <button onClick={() => { setActiveView('citas'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'citas' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
             <Calendar size={22} /> Citas
           </button>
-          <button onClick={() => setActiveView('alumnos')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'alumnos' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+          <button onClick={() => { setActiveView('alumnos'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'alumnos' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
             <GraduationCap size={22} /> Alumnos
           </button>
-          <button onClick={() => setActiveView('apoderados')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'apoderados' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
+          <button onClick={() => { setActiveView('apoderados'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'apoderados' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
             <Users size={22} /> Apoderados
           </button>
-          <button onClick={() => setActiveView('filiales')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'filiales' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <MapPin size={22} /> Filiales
-          </button>
-          <button onClick={() => setActiveView('historias')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'historias' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <Sparkles size={22} /> Historias
-          </button>
-          <button onClick={() => setActiveView('carrusel02')} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'carrusel02' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <Images size={22} /> Carrusel 02
-          </button>
+
+          {/* Opción desglosable: Gestión Web */}
+          <div className="pt-2">
+            <button
+              onClick={() => setIsWebManagementOpen(!isWebManagementOpen)}
+              className={`flex items-center justify-between w-full p-3 rounded-xl font-bold text-[17px] transition-all hover:bg-white/5
+                ${['filiales', 'historias', 'carrusel02'].includes(activeView) ? 'text-white bg-white/5' : 'text-white/70'}`}
+            >
+              <div className="flex items-center gap-3">
+                <Palette size={22} />
+                <span>Gestión Web</span>
+              </div>
+              <ChevronLeft
+                size={16}
+                className={`transition-transform duration-200 ${isWebManagementOpen ? '-rotate-90' : ''}`}
+              />
+            </button>
+            
+            {/* Submenú desglosable */}
+            <div className={`mt-1 pl-4 space-y-1 transition-all overflow-hidden duration-300 ${
+              isWebManagementOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+            }`}>
+              <button 
+                onClick={() => { setActiveView('filiales'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} 
+                className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-bold text-[15px] transition-all ${activeView === 'filiales' ? 'bg-white/15 text-white shadow-inner' : 'hover:bg-white/5 text-white/60'}`}
+              >
+                <MapPin size={18} /> Filiales
+              </button>
+              <button 
+                onClick={() => { setActiveView('historias'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} 
+                className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-bold text-[15px] transition-all ${activeView === 'historias' ? 'bg-white/15 text-white shadow-inner' : 'hover:bg-white/5 text-white/60'}`}
+              >
+                <Sparkles size={18} /> Historias
+              </button>
+              <button 
+                onClick={() => { setActiveView('carrusel02'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} 
+                className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-bold text-[15px] transition-all ${activeView === 'carrusel02' ? 'bg-white/15 text-white shadow-inner' : 'hover:bg-white/5 text-white/60'}`}
+              >
+                <Images size={18} /> Carrusel 02
+              </button>
+            </div>
+          </div>
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/10 text-center">
@@ -3042,6 +3106,14 @@ const App: React.FC = () => {
       <main className="flex-1 p-4 md:p-8 bg-[#f8fafc] overflow-y-auto">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div className="flex items-center gap-4">
+            {/* Hamburger menu button for mobile */}
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2.5 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-all text-slate-600 md:hidden flex items-center justify-center"
+              title="Menú"
+            >
+              <Menu size={20} />
+            </button>
             <div>
               <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">{activeView}</h2>
               <p className="text-slate-500 font-bold italic text-sm">Control centralizado de operaciones</p>
