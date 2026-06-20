@@ -1,9 +1,20 @@
 
 export enum AppointmentStatus {
-  PENDING = 'AGENDADO',
+  CONFIRMADO = 'CONFIRMADO',
+  CANCELADO = 'CANCELADO',
+  CONVERTIDO = 'CONVERTIDO',
+
+  // Alumno Existente (Flujo A)
+  PENDIENTE = 'PENDIENTE',
+  ASISTIO = 'ASISTIÓ',
+  FALTO = 'FALTÓ',
+
+  // Aliases de compatibilidad y transición
+  PENDING = 'PENDIENTE',
+  AGENDADO = 'AGENDADO',
   VERIFIED = 'CONFIRMADO',
-  CANCELLED = 'CANCELADO',
-  CONVERTED = 'CONVERTIDO'
+  CONVERTED = 'CONVERTIDO',
+  CANCELLED = 'CANCELADO'
 }
 
 export interface Apoderado {
@@ -59,6 +70,8 @@ export interface Appointment {
   created_at: string;
   creado_en?: string | null;
   tipo_persona?: string | null;
+  observaciones?: string | null;
+  tipo_cita?: string | null;
   // Join data for UI convenience
   alumno_nombre?: string;
   filial_nombre?: string;

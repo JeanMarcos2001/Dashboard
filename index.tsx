@@ -35,13 +35,16 @@ import {
   CalendarDays,
   Sparkles,
   CheckCircle,
+  AlertTriangle,
   ImageIcon,
   GripVertical,
   Upload,
   Images,
   Palette,
   MessageCircle,
-  Menu
+  Menu,
+  FileText,
+  Settings
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado, MensajeWsp } from './types';
@@ -104,12 +107,15 @@ const StatCard: React.FC<{
 
 const StatusBadge: React.FC<{ status: AppointmentStatus }> = ({ status }) => {
   const configs = {
-    [AppointmentStatus.PENDING]: { label: 'Agendado', classes: 'bg-amber-50 text-amber-600 border-amber-100', icon: <Clock size={12} /> },
-    [AppointmentStatus.VERIFIED]: { label: 'Confirmado', classes: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: <CheckCircle2 size={12} /> },
-    [AppointmentStatus.CANCELLED]: { label: 'Cancelado', classes: 'bg-rose-50 text-rose-600 border-rose-100', icon: <XCircle size={12} /> },
-    [AppointmentStatus.CONVERTED]: { label: 'Convertido', classes: 'bg-purple-50 text-purple-600 border-purple-100', icon: <CheckCircle2 size={12} /> }
+    [AppointmentStatus.AGENDADO]:   { label: 'Agendado', classes: 'bg-amber-50 text-amber-600 border-amber-100', icon: <Clock size={12} /> },
+    [AppointmentStatus.CONFIRMADO]: { label: 'Confirmado', classes: 'bg-teal-50 text-teal-600 border-teal-100', icon: <CheckCircle2 size={12} /> },
+    [AppointmentStatus.CANCELADO]:  { label: 'Cancelado', classes: 'bg-rose-50 text-rose-600 border-rose-100', icon: <XCircle size={12} /> },
+    [AppointmentStatus.CONVERTIDO]: { label: 'Convertido', classes: 'bg-purple-50 text-purple-600 border-purple-100', icon: <CheckCircle2 size={12} /> },
+    [AppointmentStatus.PENDIENTE]:  { label: 'Pendiente', classes: 'bg-sky-50 text-sky-600 border-sky-100', icon: <Clock size={12} /> },
+    [AppointmentStatus.ASISTIO]:    { label: 'Asistió', classes: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: <CheckCircle2 size={12} /> },
+    [AppointmentStatus.FALTO]:      { label: 'Faltó', classes: 'bg-orange-50 text-orange-600 border-orange-100', icon: <AlertTriangle size={12} /> }
   };
-  const config = configs[status] || configs[AppointmentStatus.PENDING];
+  const config = configs[status] || configs[AppointmentStatus.PENDIENTE];
   return (
     <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-tight border ${config.classes}`}>
       {config.icon} {config.label}
@@ -156,6 +162,17 @@ const ConfirmAlert: React.FC<{ config: any; onClose: () => void }> = ({ config, 
 interface ColorCorporativo { id: number; nombre: string; clase_css: string; hex: string; activo: boolean; }
 interface Historia { id: number; nombre_alumno: string; programa: string; narracion: string; palabras_por_min: string; foto_path: string | null; foto_position: string | null; foto_scale: number | null; id_color: number | null; activo: boolean; orden: number; created_at: string; }
 interface Carrusel02Imagen { id: number; nombre: string; file_path: string; orden: number; activo: boolean; foto_position: string | null; foto_scale: number | null; created_at: string; }
+
+const isAlumnoExistenteCita = (app: Appointment | null | undefined): boolean => {
+  if (!app) return false;
+  if (app.tipo_cita === 'alumno_existente') return true;
+  if (app.tipo_cita) return false;
+  if (app.tipo_persona?.startsWith('existente_')) return true;
+  if (app.estado === AppointmentStatus.PENDIENTE || 
+      app.estado === AppointmentStatus.ASISTIO || 
+      app.estado === AppointmentStatus.FALTO) return true;
+  return false;
+};
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias' | 'carrusel02'>('dashboard');
@@ -268,6 +285,8 @@ const App: React.FC = () => {
   // Cita
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
+  const [appointmentObservaciones, setAppointmentObservaciones] = useState('');
+  const [preselectedDate, setPreselectedDate] = useState<string | null>(null);
 
   // Modal de Confirmación
   const [isConfirmingSave, setIsConfirmingSave] = useState(false);
@@ -297,6 +316,16 @@ const App: React.FC = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [detailsAppointment, setDetailsAppointment] = useState<Appointment | null>(null);
   const [isReprogrammingExpanded, setIsReprogrammingExpanded] = useState(false);
+  const [detailsNotes, setDetailsNotes] = useState<string>('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (detailsAppointment) {
+      setDetailsNotes(detailsAppointment.observaciones || '');
+    } else {
+      setDetailsNotes('');
+    }
+  }, [detailsAppointment]);
 
   // Alert State
   const [alertConfig, setAlertConfig] = useState<{
@@ -355,6 +384,8 @@ const App: React.FC = () => {
       setNewStudents([{ nombre_completo: '', edad: '' }]);
       setAppointmentDate('');
       setAppointmentTime('');
+      setAppointmentObservaciones('');
+      setPreselectedDate(null);
       setIsConfirmingSave(false);
       setPendingBookingPayload(null);
     }
@@ -399,11 +430,15 @@ const App: React.FC = () => {
           const alumnoData = Array.isArray(a.alumnos) ? a.alumnos[0] : a.alumnos;
           const filialData = Array.isArray(a.filiales) ? a.filiales[0] : a.filiales;
 
+          const calculatedTipoCita = a.tipo_cita || (
+            (a.tipo_persona?.startsWith('existente_') || a.estado === 'PENDIENTE' || a.estado === 'ASISTIÓ' || a.estado === 'FALTÓ')
+              ? 'alumno_existente'
+              : (a.tipo_persona === 'independiente' ? 'matricula_independiente' : 'matricula_dependiente')
+          );
           return {
             ...a,
-            estado: a.estado?.toUpperCase() === 'PENDIENTE' ? AppointmentStatus.PENDING :
-                    a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.VERIFIED :
-                    a.estado?.toUpperCase(),
+            tipo_cita: calculatedTipoCita,
+            estado: a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.CONFIRMADO : a.estado,
             alumno_nombre: alumnoData?.nombre_completo || 'Sin nombre',
             filial_nombre: filialData?.nombre || 'Sin sede'
           };
@@ -432,14 +467,16 @@ const App: React.FC = () => {
   // Estadísticas globales
   const stats = useMemo((): Stats => {
     const total = appointments.length;
-    const verified = appointments.filter(a => a.estado === AppointmentStatus.VERIFIED).length;
-    const pending = appointments.filter(a => a.estado === AppointmentStatus.PENDING).length;
-    const converted = appointments.filter(a => a.estado === AppointmentStatus.CONVERTED).length;
+    const verified = appointments.filter(a => !isAlumnoExistenteCita(a) && a.estado === AppointmentStatus.CONFIRMADO).length;
+    const pending = appointments.filter(a => !isAlumnoExistenteCita(a) && (a.estado === AppointmentStatus.PENDIENTE || a.estado === AppointmentStatus.AGENDADO)).length;
+    const converted = appointments.filter(a => !isAlumnoExistenteCita(a) && a.estado === AppointmentStatus.CONVERTIDO).length;
+    const totalNewLeads = appointments.filter(a => !isAlumnoExistenteCita(a)).length;
+    const conversion = totalNewLeads > 0 ? (converted / totalNewLeads) * 100 : 0;
     return {
       totalAppointments: total,
       verifiedCount: verified,
       pendingCount: pending,
-      conversionRate: total > 0 ? (converted / total) * 100 : 0
+      conversionRate: conversion
     };
   }, [appointments]);
 
@@ -494,8 +531,10 @@ const App: React.FC = () => {
           fecha_cita: booking.fecha_cita,
           hora_cita: booking.hora_cita,
           tipo_persona: esIndependiente ? 'independiente' : 'dependiente',
-          estado: AppointmentStatus.PENDING,
-          creado_en: new Date().toISOString()
+          estado: AppointmentStatus.PENDIENTE,
+          creado_en: new Date().toISOString(),
+          observaciones: booking.observaciones || null,
+          tipo_cita: 'alumno_existente'
         };
 
         const { data, error } = await supabase
@@ -514,9 +553,7 @@ const App: React.FC = () => {
             ...data,
             alumno_nombre: data.alumnos?.nombre_completo,
             filial_nombre: data.filiales?.nombre,
-            estado: data.estado?.toUpperCase() === 'PENDIENTE' ? AppointmentStatus.PENDING :
-                    data.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.VERIFIED :
-                    data.estado?.toUpperCase()
+            estado: data.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.CONFIRMADO : data.estado
           };
           setAppointments(prev => [transformed, ...prev].sort((a: any, b: any) => {
             const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
@@ -573,8 +610,10 @@ const App: React.FC = () => {
           fecha_cita: booking.fecha_cita,
           hora_cita: booking.hora_cita,
           tipo_persona: booking.newStudentType === 'independent' ? 'independiente' : 'dependiente',
-          estado: AppointmentStatus.PENDING,
-          creado_en: new Date().toISOString()
+          estado: AppointmentStatus.PENDIENTE,
+          creado_en: new Date().toISOString(),
+          observaciones: booking.observaciones || null,
+          tipo_cita: booking.newStudentType === 'independent' ? 'matricula_independiente' : 'matricula_dependiente'
         }));
 
         const { data: appData, error: appError } = await supabase
@@ -598,9 +637,7 @@ const App: React.FC = () => {
           ...a,
           alumno_nombre: a.alumnos?.nombre_completo,
           filial_nombre: a.filiales?.nombre,
-          estado: a.estado?.toUpperCase() === 'PENDIENTE' ? AppointmentStatus.PENDING :
-                  a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.VERIFIED :
-                  a.estado?.toUpperCase()
+          estado: a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.CONFIRMADO : a.estado
         }));
 
         setAppointments(prev => [...transformedApps, ...prev].sort((a: any, b: any) => {
@@ -1022,13 +1059,15 @@ const App: React.FC = () => {
         // Formato YYYY-MM-DD
         const dateStr = selectedDate.toISOString().split('T')[0];
 
+        const newStatus = AppointmentStatus.PENDIENTE;
+
         const { error } = await supabase
           .from('citas')
-          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING })
+          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus })
           .eq('id', rescheduleApp.id);
 
         if (!error) {
-          setAppointments(prev => prev.map(a => a.id === rescheduleApp.id ? { ...a, fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING } : a));
+          setAppointments(prev => prev.map(a => a.id === rescheduleApp.id ? { ...a, fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus } : a));
           setIsRescheduleModalOpen(false);
           setAlertConfig({ isOpen: true, title: 'Éxito', message: 'Cita reprogramada con éxito', isAlertOnly: true, confirmText: 'Aceptar' });
         } else {
@@ -1046,25 +1085,58 @@ const App: React.FC = () => {
     return { days, firstDay };
   };
 
+  const formatHour12 = (hour24: string) => {
+    if (!hour24) return '';
+    const [hStr, mStr] = hour24.split(':');
+    const h = parseInt(hStr, 10);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:00 ${period}`;
+  };
+
   const getAvailableHours = (date: Date) => {
-    const day = date.getDay(); // 0 = Sun, 1 = Mon ...
+    const day = date.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
     const hours = [];
 
-    // Logic: Lunes(1) a Cita(5): 9-12 y 15-19
-    // Sabado(6): Igual (asumo por "lunes a sabado")
-    // Domingo(0): 9-15
-
     if (day === 0) {
-      // Domingo 9am - 3pm (15:00)
-      for (let i = 9; i <= 15; i++) hours.push(`${i}:00`);
+      // Domingo: 10am a 3pm (10, 11, 12, 13, 14, 15)
+      for (let i = 10; i <= 15; i++) {
+        hours.push(`${i.toString().padStart(2, '0')}:00`);
+      }
+    } else if (day === 6) {
+      // Sábado: 9am a 12pm (9, 10, 11, 12) y 4pm a 7pm (16, 17, 18, 19)
+      for (let i = 9; i <= 12; i++) {
+        hours.push(`${i.toString().padStart(2, '0')}:00`);
+      }
+      for (let i = 16; i <= 19; i++) {
+        hours.push(`${i.toString().padStart(2, '0')}:00`);
+      }
     } else {
-      // Lun-Sab
-      // 9am - 12pm
-      for (let i = 9; i <= 12; i++) hours.push(`${i}:00`);
-      // 3pm (15) - 7pm (19)
-      for (let i = 15; i <= 19; i++) hours.push(`${i}:00`);
+      // Lunes a Viernes: 9am a 12pm (9, 10, 11, 12) y 3pm a 7pm (15, 16, 17, 18, 19)
+      for (let i = 9; i <= 12; i++) {
+        hours.push(`${i.toString().padStart(2, '0')}:00`);
+      }
+      for (let i = 15; i <= 19; i++) {
+        hours.push(`${i.toString().padStart(2, '0')}:00`);
+      }
     }
     return hours;
+  };
+
+  const getAvailableHoursForDateStr = (dateStr: string) => {
+    if (!dateStr) return [];
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return getAvailableHours(date);
+  };
+
+  const handleCreateAppointmentForDate = (dateStr: string) => {
+    setPreselectedDate(dateStr);
+    setAppointmentDate(dateStr);
+    setAppointmentTime('');
+    setAppointmentObservaciones('');
+    setEditingItem(null);
+    setIsModalOpen(true);
   };
 
   const formatFriendlyDate = (dateStr: string) => {
@@ -1120,36 +1192,49 @@ const App: React.FC = () => {
           <div className="space-y-4">
             {appointments.length > 0 ? appointments.slice(0, 4).map(app => {
               const al = alumnos.find(a => a.id === app.id_alumno);
-              const isIndependiente = app.tipo_persona === 'independiente' || !al?.id_apoderado;
+              const isExistente = isAlumnoExistenteCita(app);
+              const isIndependiente = app.tipo_persona === 'independiente' || app.tipo_persona === 'existente_independiente' || !al?.id_apoderado;
               const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
+
+              const containerClasses = isExistente
+                ? 'bg-emerald-50/40 border-emerald-100 hover:border-emerald-300'
+                : 'bg-indigo-50/40 border-indigo-100 hover:border-indigo-300';
+              
+              const avatarClasses = isExistente
+                ? 'bg-emerald-600 text-white'
+                : 'bg-indigo-600 text-white';
+
               return (
-                <div key={app.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 group hover:border-emerald-200 transition-colors">
+                <div key={app.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-200 group ${containerClasses}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-emerald-600 font-bold border border-slate-100">
+                    <div className={`w-10 h-10 rounded-xl shadow-sm flex items-center justify-center font-black text-lg ${avatarClasses}`}>
                       {app.alumno_nombre?.[0] || 'A'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
+                        <p className="font-black text-slate-800 leading-none text-[15px]">{app.alumno_nombre}</p>
                         {isNew && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
                             Nuevo
                           </span>
                         )}
-                        {isIndependiente ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
-                            Ind.
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200">
-                            Apod.
-                          </span>
-                        )}
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                          isExistente 
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' 
+                            : 'bg-indigo-100 text-indigo-700 border border-indigo-200/50'
+                        }`}>
+                          {isExistente ? 'Existente' : 'Matrícula'}
+                        </span>
                       </div>
-                      <p className="text-xs text-slate-400 font-medium mt-1.5">{app.fecha_cita} • {app.hora_cita}</p>
+                      <p className="text-xs text-slate-400 font-bold mt-1.5 uppercase">{app.fecha_cita} • {app.hora_cita}</p>
                     </div>
                   </div>
-                  <StatusBadge status={app.estado} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded-lg border border-slate-200/60 bg-white/70 text-slate-600 shadow-sm hidden sm:inline-block">
+                      {isIndependiente ? 'Indep.' : 'Apod.'}
+                    </span>
+                    <StatusBadge status={app.estado} />
+                  </div>
                 </div>
               );
             }) : <p className="text-center text-slate-400 py-10 font-medium italic">No hay actividad reciente</p>}
@@ -1317,9 +1402,13 @@ const App: React.FC = () => {
                 className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none"
               >
                 <option value="ALL">Todos los estados</option>
-                <option value={AppointmentStatus.PENDING}>Pendiente</option>
-                <option value={AppointmentStatus.VERIFIED}>Verificado</option>
-                <option value={AppointmentStatus.CANCELLED}>Cancelado</option>
+                <option value={AppointmentStatus.AGENDADO}>Agendado (Legacy)</option>
+                <option value={AppointmentStatus.CONFIRMADO}>Confirmado (Matrícula)</option>
+                <option value={AppointmentStatus.CONVERTIDO}>Convertido (Matrícula)</option>
+                <option value={AppointmentStatus.PENDIENTE}>Pendiente (Inicio)</option>
+                <option value={AppointmentStatus.ASISTIO}>Asistió (Existente)</option>
+                <option value={AppointmentStatus.FALTO}>Faltó (Legacy)</option>
+                <option value={AppointmentStatus.CANCELADO}>Cancelado</option>
               </select>
             </div>
 
@@ -1404,10 +1493,13 @@ const App: React.FC = () => {
     const rangeLabel = `${DAY_NAMES[startDay.getDay()]} ${startDay.getDate()} ${MONTH_NAMES[startDay.getMonth()]} — ${DAY_NAMES[endDay.getDay()]} ${endDay.getDate()} ${MONTH_NAMES[endDay.getMonth()]} ${endDay.getFullYear()}`;
 
     const STATUS_STYLES: Record<string, { bg: string; border: string; dot: string; text: string }> = {
-      [AppointmentStatus.PENDING]:   { bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-400',   text: 'text-amber-700'   },
-      [AppointmentStatus.VERIFIED]:  { bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500', text: 'text-emerald-700' },
-      [AppointmentStatus.CANCELLED]: { bg: 'bg-rose-50',    border: 'border-rose-200',    dot: 'bg-rose-400',    text: 'text-rose-700'    },
-      [AppointmentStatus.CONVERTED]: { bg: 'bg-purple-50',  border: 'border-purple-200',  dot: 'bg-purple-500',  text: 'text-purple-700'  },
+      [AppointmentStatus.AGENDADO]:   { bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-500',   text: 'text-amber-700'   },
+      [AppointmentStatus.CONFIRMADO]: { bg: 'bg-teal-50',    border: 'border-teal-200',    dot: 'bg-teal-500',    text: 'text-teal-700'    },
+      [AppointmentStatus.CANCELADO]:  { bg: 'bg-rose-50',    border: 'border-rose-200',    dot: 'bg-rose-500',    text: 'text-rose-700'    },
+      [AppointmentStatus.CONVERTIDO]: { bg: 'bg-purple-50',  border: 'border-purple-200',  dot: 'bg-purple-500',  text: 'text-purple-700'  },
+      [AppointmentStatus.PENDIENTE]:  { bg: 'bg-sky-50',     border: 'border-sky-200',     dot: 'bg-sky-500',     text: 'text-sky-700'     },
+      [AppointmentStatus.ASISTIO]:    { bg: 'bg-emerald-50',  border: 'border-emerald-200', dot: 'bg-emerald-500', text: 'text-emerald-700' },
+      [AppointmentStatus.FALTO]:      { bg: 'bg-orange-50',  border: 'border-orange-200',  dot: 'bg-orange-500',  text: 'text-orange-700'  },
     };
 
     return (
@@ -1461,11 +1553,25 @@ const App: React.FC = () => {
               return (
                 <div key={day.getTime()} className="flex flex-col">
                   {/* Encabezado del dia */}
-                  <div className={`text-center px-2 py-3 rounded-2xl mb-2 transition-all ${
+                  <div className={`relative text-center px-2 py-3 rounded-2xl mb-2 transition-all ${
                     isToday
-                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20'
+                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 text-white'
                       : 'bg-white border border-slate-200'
                   }`}>
+                    {/* Botón "+" para crear cita rápida */}
+                    <button
+                      type="button"
+                      onClick={() => handleCreateAppointmentForDate(dateStr)}
+                      className={`absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-full text-xs font-black transition-all cursor-pointer shadow-sm ${
+                        isToday
+                          ? 'bg-white/20 hover:bg-white/40 text-white hover:scale-110'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-emerald-600 border border-slate-200/50 hover:scale-110'
+                      }`}
+                      title="Agendar cita para este día"
+                    >
+                      <Plus size={13} />
+                    </button>
+
                     <p className={`text-3xl font-black leading-none ${
                       isToday ? 'text-white' : 'text-slate-800'
                     }`}>
@@ -1491,44 +1597,66 @@ const App: React.FC = () => {
                       </div>
                     ) : (
                       dayApps.map(app => {
-                        const isIndependiente = app.tipo_persona === 'independiente';
-                        const s = STATUS_STYLES[app.estado] || STATUS_STYLES[AppointmentStatus.PENDING];
+                        const isExistente = isAlumnoExistenteCita(app);
+                        const isInd = app.tipo_persona === 'independiente' || app.tipo_persona === 'existente_independiente';
+                        const s = STATUS_STYLES[app.estado] || STATUS_STYLES[AppointmentStatus.AGENDADO];
                         const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
-                        const borderLeftColor = 
-                          app.estado === AppointmentStatus.VERIFIED ? 'border-l-emerald-500' :
-                          app.estado === AppointmentStatus.CONVERTED ? 'border-l-purple-500' :
-                          app.estado === AppointmentStatus.CANCELLED ? 'border-l-rose-500' : 'border-l-amber-500';
+
+                        // Layout variables based on appointment type
+                        const cardClasses = isExistente
+                          ? 'bg-white hover:bg-emerald-50/10 border-slate-200/60'
+                          : 'bg-white hover:bg-indigo-50/10 border-slate-200/60';
+
+                        const typeLabel = isExistente ? 'EXISTENTE' : 'MATRÍCULA';
+
                         return (
                           <button
                             key={app.id}
                             onClick={() => openAppointmentDetails(app)}
-                            className={`w-full text-left p-3 rounded-2xl bg-white border border-slate-100 border-l-[5px] ${borderLeftColor} shadow-sm hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] flex flex-col gap-2`}
+                            className={`w-full text-left p-3.5 rounded-[16px] border ${cardClasses} shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] flex flex-col cursor-pointer`}
                           >
                             <div className="flex items-center justify-between w-full gap-2">
-                              <div className="flex items-center gap-1 text-[12px] font-extrabold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
-                                <Clock size={12} className="text-slate-400" />
-                                {fmtTime(app.hora_cita)}
-                              </div>
-                              {isNew && (
-                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[12px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
-                                  Nuevo
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* Estado del registro (Badge principal) */}
+                                <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11.5px] font-bold uppercase border shadow-sm ${s.bg} ${s.text} ${s.border}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot} flex-shrink-0`} />
+                                  {app.estado}
+                                </div>
+                                
+                                {/* Tipo de cita */}
+                                <span className="text-[11.5px] font-bold uppercase px-2.5 py-0.5 rounded-full border border-slate-200/50 bg-slate-100 text-slate-600">
+                                  {typeLabel}
                                 </span>
-                              )}
+
+                                {/* Etiqueta Nuevo */}
+                                {isNew && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold uppercase border border-amber-200 bg-amber-50 text-amber-600">
+                                    Nuevo
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-slate-400 flex-shrink-0 hover:text-slate-600 transition-colors p-0.5">
+                                <MoreVertical size={14} />
+                              </div>
                             </div>
                             
-                            <p className="text-[14px] font-extrabold text-slate-800 leading-snug line-clamp-2">
+                            {/* Nombre del Alumno */}
+                            <h4 className="text-[15.5px] font-bold text-slate-800 truncate w-full mt-3">
                               {app.alumno_nombre}
-                            </p>
+                            </h4>
 
-                            <div className="flex items-center gap-1 text-[12px] text-slate-500 font-semibold truncate">
-                              <MapPin size={12} className="text-slate-400 flex-shrink-0" />
-                              <span className="truncate">{app.filial_nombre}</span>
+                            {/* Hora de la programación */}
+                            <div className="flex items-center gap-1.5 mt-2 text-slate-500 font-medium text-[13.5px]">
+                              <Clock size={13} className="text-slate-400 flex-shrink-0" />
+                              <span>{fmtTime(app.hora_cita)}</span>
                             </div>
 
-                            <div className="flex items-center justify-between w-full mt-1 border-t border-slate-50 pt-2">
-                              <span className={`text-[12px] font-black uppercase px-2 py-0.5 rounded-lg border ${s.bg} ${s.text} ${s.border}`}>
-                                {isIndependiente ? 'Independiente' : 'Con Apoderado'}
-                              </span>
+                            {/* Raya divisoria sutil */}
+                            <div className="border-t border-slate-100 mt-3 mb-2.5 w-full" />
+
+                            {/* Nombre de la filial */}
+                            <div className="text-slate-500 font-medium text-[13.5px] truncate w-full">
+                              {app.filial_nombre}
                             </div>
                           </button>
                         );
@@ -1644,39 +1772,52 @@ const App: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {filtered.length > 0 ? filtered.map(app => {
                     const al = alumnos.find(a => a.id === app.id_alumno);
-                    const isIndependiente = app.tipo_persona === 'independiente' || !al?.id_apoderado;
+                    const isExistente = isAlumnoExistenteCita(app);
+                    const isInd = app.tipo_persona === 'independiente' || app.tipo_persona === 'existente_independiente' || !al?.id_apoderado;
                     const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
+                    
+                    const rowClass = isExistente 
+                      ? 'bg-emerald-50/10 hover:bg-emerald-50/45 transition-colors group' 
+                      : 'bg-indigo-50/10 hover:bg-indigo-50/30 transition-colors group';
+
                     return (
-                      <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <tr key={app.id} className={rowClass}>
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
+                            <p className="font-black text-slate-800 leading-none text-[15px]">{app.alumno_nombre}</p>
                             {isNew && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm shadow-amber-200 animate-pulse">
                                 <Sparkles size={9} /> Nuevo
                               </span>
                             )}
-                            {isIndependiente ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
-                                Independiente
+                            {isExistente ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-emerald-100/80 text-emerald-800 border border-emerald-200/50 shadow-sm">
+                                Alumno Existente
                               </span>
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
-                                Con Apoderado
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-indigo-100/80 text-indigo-800 border border-indigo-200/50 shadow-sm">
+                                Matrícula Nueva
                               </span>
                             )}
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">
+                              {isInd ? 'Indep.' : 'Apod.'}
+                            </span>
                           </div>
                           <p className="text-[13px] text-slate-400 font-bold mt-1.5 uppercase">ID: {app.id_alumno}</p>
                         </td>
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-2 text-slate-600 font-bold text-sm">
-                            <MapPin size={14} className="text-emerald-500" />
+                            <MapPin size={14} className={isExistente ? 'text-emerald-500' : 'text-indigo-500'} />
                             {app.filial_nombre}
                           </div>
                         </td>
                         <td className="px-6 py-5">
                           <div className="text-sm font-black text-slate-700 capitalize">{formatFriendlyDate(app.fecha_cita)}</div>
-                          <div className="text-[14px] text-emerald-600 font-black bg-emerald-50 inline-block px-1.5 rounded mt-1 shadow-sm border border-emerald-100">{app.hora_cita}</div>
+                          <div className={`text-[14px] font-black inline-block px-1.5 rounded mt-1 shadow-sm border ${
+                            isExistente 
+                              ? 'text-emerald-600 bg-emerald-50 border-emerald-100' 
+                              : 'text-indigo-600 bg-indigo-50 border-indigo-100'
+                          }`}>{app.hora_cita}</div>
                         </td>
                         <td className="px-6 py-5 text-[13px] text-slate-500 font-bold">
                           {app.creado_en ? new Date(app.creado_en).toLocaleString('es-PE') : '—'}
@@ -1689,7 +1830,11 @@ const App: React.FC = () => {
                         <td className="px-6 py-5 text-right">
                           <button
                             onClick={() => openAppointmentDetails(app)}
-                            className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded-xl font-bold text-xs flex items-center gap-2 ml-auto transition-all"
+                            className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 ml-auto transition-all border cursor-pointer ${
+                              isExistente 
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-150' 
+                                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-150'
+                            }`}
                           >
                             <Eye size={16} /> Ver Cita
                           </button>
@@ -1953,7 +2098,7 @@ const App: React.FC = () => {
                     }
                                 `}
                 >
-                  {hour}
+                  {formatHour12(hour)}
                 </button>
               ))}
             </div>
@@ -2098,13 +2243,15 @@ const App: React.FC = () => {
         const day = String(selectedDate.getDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
 
+        const newStatus = AppointmentStatus.PENDIENTE;
+
         const { error } = await supabase
           .from('citas')
-          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING })
+          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus })
           .eq('id', detailsAppointment.id);
 
         if (!error) {
-          const updatedApp = { ...detailsAppointment, fecha_cita: dateStr, hora_cita: selectedTime, estado: AppointmentStatus.PENDING };
+          const updatedApp = { ...detailsAppointment, fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus };
           setAppointments(prev => prev.map(a => a.id === detailsAppointment.id ? updatedApp : a));
           setDetailsAppointment(updatedApp);
           setIsReprogrammingExpanded(false);
@@ -2114,6 +2261,36 @@ const App: React.FC = () => {
         }
       }
     });
+  };
+
+  const handleUpdateNotes = async () => {
+    if (!detailsAppointment) return;
+
+    const { error } = await supabase
+      .from('citas')
+      .update({ observaciones: detailsNotes || null })
+      .eq('id', detailsAppointment.id);
+
+    if (!error) {
+      const updatedApp = { ...detailsAppointment, observaciones: detailsNotes || null };
+      setAppointments(prev => prev.map(a => a.id === detailsAppointment.id ? updatedApp : a));
+      setDetailsAppointment(updatedApp);
+      setAlertConfig({
+        isOpen: true,
+        title: 'Éxito',
+        message: 'Notas actualizadas con éxito',
+        isAlertOnly: true,
+        confirmText: 'Aceptar'
+      });
+    } else {
+      setAlertConfig({
+        isOpen: true,
+        title: 'Error',
+        message: 'Error al actualizar notas: ' + error.message,
+        isAlertOnly: true,
+        confirmText: 'Aceptar'
+      });
+    }
   };
 
   const renderAppointmentDetailsModal = () => {
@@ -2157,15 +2334,26 @@ const App: React.FC = () => {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-        <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden relative animate-in fade-in zoom-in duration-200">
+        <div className="relative w-full max-w-2xl">
 
-          {/* Navigation Buttons */}
-          <button onClick={() => handleDetailsNavigation('prev')} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 transition-all z-10 border border-slate-100">
+          {/* Navigation Buttons (Outside on desktop) */}
+          <button onClick={() => handleDetailsNavigation('prev')} className="absolute -left-16 top-1/2 -translate-y-1/2 p-3 bg-white/95 hover:bg-white rounded-full shadow-xl text-slate-700 hover:text-emerald-600 transition-all z-20 border border-slate-200 hover:scale-105 active:scale-95 hidden md:flex cursor-pointer">
             <ChevronLeft size={24} />
           </button>
-          <button onClick={() => handleDetailsNavigation('next')} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 transition-all z-10 border border-slate-100">
+          <button onClick={() => handleDetailsNavigation('next')} className="absolute -right-16 top-1/2 -translate-y-1/2 p-3 bg-white/95 hover:bg-white rounded-full shadow-xl text-slate-700 hover:text-emerald-600 transition-all z-20 border border-slate-200 hover:scale-105 active:scale-95 hidden md:flex cursor-pointer">
             <ChevronLeft size={24} className="rotate-180" />
           </button>
+
+          {/* Navigation Buttons (Inside on mobile to prevent clipping) */}
+          <button onClick={() => handleDetailsNavigation('prev')} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 transition-all z-10 border border-slate-100 md:hidden">
+            <ChevronLeft size={20} />
+          </button>
+          <button onClick={() => handleDetailsNavigation('next')} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 transition-all z-10 border border-slate-100 md:hidden">
+            <ChevronLeft size={20} className="rotate-180" />
+          </button>
+
+          {/* Modal Box */}
+          <div className="bg-white rounded-3xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden relative animate-in fade-in zoom-in duration-200">
 
           {/* Header */}
           <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-start">
@@ -2296,30 +2484,92 @@ const App: React.FC = () => {
                   <StatusBadge status={detailsAppointment.estado} />
                 </div>
                 <div className="flex gap-2">
-                  {detailsAppointment.estado !== AppointmentStatus.VERIFIED && (
-                    <button
-                      onClick={() => handleStatusChangeFromModal(AppointmentStatus.VERIFIED)}
-                      className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 text-xs font-bold transition-colors"
-                    >
-                      Confirmar
-                    </button>
+                  {isAlumnoExistenteCita(detailsAppointment) ? (
+                    <>
+                      {detailsAppointment.estado !== AppointmentStatus.PENDIENTE && (
+                        <button
+                          onClick={() => handleStatusChangeFromModal(AppointmentStatus.PENDIENTE)}
+                          className="px-3 py-1.5 bg-sky-100 text-sky-700 rounded-lg hover:bg-sky-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Pendiente
+                        </button>
+                      )}
+                      {detailsAppointment.estado !== AppointmentStatus.ASISTIO && (
+                        <button
+                          onClick={() => handleStatusChangeFromModal(AppointmentStatus.ASISTIO)}
+                          className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Asistió
+                        </button>
+                      )}
+                      {detailsAppointment.estado !== AppointmentStatus.CANCELADO && (
+                        <button
+                          onClick={() => handleStatusChangeFromModal(AppointmentStatus.CANCELADO)}
+                          className="px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {detailsAppointment.estado !== AppointmentStatus.PENDIENTE && (
+                        <button
+                          onClick={() => handleStatusChangeFromModal(AppointmentStatus.PENDIENTE)}
+                          className="px-3 py-1.5 bg-sky-100 text-sky-700 rounded-lg hover:bg-sky-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Pendiente
+                        </button>
+                      )}
+                      {detailsAppointment.estado !== AppointmentStatus.CONFIRMADO && (
+                        <button
+                          onClick={() => handleStatusChangeFromModal(AppointmentStatus.CONFIRMADO)}
+                          className="px-3 py-1.5 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Confirmar
+                        </button>
+                      )}
+                      {detailsAppointment.estado !== AppointmentStatus.CONVERTIDO && (
+                        <button
+                          onClick={() => handleStatusChangeFromModal(AppointmentStatus.CONVERTIDO)}
+                          className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Convertir
+                        </button>
+                      )}
+                      {detailsAppointment.estado !== AppointmentStatus.CANCELADO && (
+                        <button
+                          onClick={() => handleStatusChangeFromModal(AppointmentStatus.CANCELADO)}
+                          className="px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </>
                   )}
-                  {detailsAppointment.estado !== AppointmentStatus.CONVERTED && (
-                    <button
-                      onClick={() => handleStatusChangeFromModal(AppointmentStatus.CONVERTED)}
-                      className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-xs font-bold transition-colors"
-                    >
-                      Convertir
-                    </button>
-                  )}
-                  {detailsAppointment.estado !== AppointmentStatus.CANCELLED && (
-                    <button
-                      onClick={() => handleStatusChangeFromModal(AppointmentStatus.CANCELLED)}
-                      className="px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 text-xs font-bold transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Observaciones / Notas */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                <FileText size={16} className="text-emerald-600" /> Observaciones / Notas
+              </h4>
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                <textarea
+                  value={detailsNotes}
+                  onChange={(e) => setDetailsNotes(e.target.value)}
+                  placeholder="Ingrese observaciones o notas sobre la cita..."
+                  className="w-full h-24 p-3 bg-white border border-slate-200 rounded-xl font-medium text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none transition-all placeholder:text-slate-400"
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleUpdateNotes}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-100 hover:shadow-lg transition-all flex items-center gap-2"
+                  >
+                    <Save size={14} /> Actualizar Notas
+                  </button>
                 </div>
               </div>
             </div>
@@ -2365,7 +2615,7 @@ const App: React.FC = () => {
                               onClick={() => setSelectedTime(hour)}
                               className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${selectedTime === hour ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'}`}
                             >
-                              {hour}
+                              {formatHour12(hour)}
                             </button>
                           ))}
                         </div>
@@ -2391,7 +2641,8 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
-    );
+    </div>
+  );
   };
 
 
@@ -3555,10 +3806,20 @@ const App: React.FC = () => {
           </div>
         </nav>
 
+        {/* Botón de Configuración en la parte inferior de la barra de menú */}
+        <div className="pt-4 border-t border-white/10 mt-auto">
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all hover:bg-white/5 text-white/70 hover:text-white cursor-pointer"
+          >
+            <Settings size={22} /> Configuración
+          </button>
+        </div>
+
         {/* Handle (Hojal) for collapsing/expanding sidebar */}
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute left-full top-1/2 -translate-y-1/2 w-9 h-20 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-2xl shadow-xl flex items-center justify-center border-y border-r border-emerald-500/20 transition-all duration-300 hover:w-10 active:scale-95 cursor-pointer z-50 group"
+          className="absolute left-full bottom-8 w-9 h-20 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-2xl shadow-xl flex items-center justify-center border-y border-r border-emerald-500/20 transition-all duration-300 hover:w-10 active:scale-95 cursor-pointer z-50 group"
           style={{ marginLeft: '-1px' }}
           title={isSidebarOpen ? "Ocultar menú" : "Mostrar menú"}
         >
@@ -3623,6 +3884,40 @@ const App: React.FC = () => {
 
         {renderAppointmentDetailsModal()}
         {renderRescheduleModal()}
+
+        {/* Settings Modal */}
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden relative animate-in fade-in zoom-in duration-200">
+              {/* Header / Franja Superior */}
+              <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
+                    <Settings size={20} />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 tracking-tight">Configuración</h3>
+                </div>
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Content Body */}
+              <div className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-2">
+                  <Settings size={32} className="text-slate-400" />
+                </div>
+                <p className="text-lg font-bold text-slate-700">Módulo en Desarrollo</p>
+                <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider bg-slate-50 py-2.5 px-4 rounded-xl border border-slate-100/80">
+                  Aún por implementar más detalle
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {renderHistoriaModal()}
         {renderCarrusel02Modal()}
         {renderColorManagerModal()}
@@ -3710,6 +4005,16 @@ const App: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Observaciones */}
+                {pendingBookingPayload.observaciones && (
+                  <div className="pt-4 space-y-2">
+                    <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Observaciones / Notas</h4>
+                    <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-slate-600 italic">
+                      "{pendingBookingPayload.observaciones}"
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
@@ -3876,27 +4181,47 @@ const App: React.FC = () => {
                       )}
 
                       {/* Fecha y Hora de la cita */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha</label>
-                          <input
-                            type="date"
-                            required
-                            className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
-                            value={appointmentDate}
-                            onChange={(e) => setAppointmentDate(e.target.value)}
-                          />
-                        </div>
+                      <div className={preselectedDate ? "grid grid-cols-1" : "grid grid-cols-2 gap-4"}>
+                        {!preselectedDate && (
+                          <div>
+                            <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha</label>
+                            <input
+                              type="date"
+                              required
+                              className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                              value={appointmentDate}
+                              onChange={(e) => setAppointmentDate(e.target.value)}
+                            />
+                          </div>
+                        )}
                         <div>
                           <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hora</label>
-                          <input
-                            type="time"
+                          <select
                             required
                             className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
                             value={appointmentTime}
                             onChange={(e) => setAppointmentTime(e.target.value)}
-                          />
+                          >
+                            <option value="" disabled>Seleccione hora...</option>
+                            {getAvailableHoursForDateStr(appointmentDate).map((h) => (
+                              <option key={h} value={h}>
+                                {formatHour12(h)}
+                              </option>
+                            ))}
+                          </select>
                         </div>
+                      </div>
+
+                      {/* Observaciones */}
+                      <div>
+                        <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Observaciones / Notas</label>
+                        <textarea
+                          placeholder="Ingrese observaciones o anotaciones sobre la cita (ej. dificultad del alumno, comentarios)..."
+                          rows={3}
+                          className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700 shadow-sm text-sm"
+                          value={appointmentObservaciones}
+                          onChange={(e) => setAppointmentObservaciones(e.target.value)}
+                        />
                       </div>
 
                       <button
@@ -3911,7 +4236,8 @@ const App: React.FC = () => {
                             filialId: selectedFilialId,
                             alumnoId: selectedAlumnoId,
                             fecha_cita: appointmentDate,
-                            hora_cita: appointmentTime
+                            hora_cita: appointmentTime,
+                            observaciones: appointmentObservaciones
                           });
                           setIsConfirmingSave(true);
                         }}
@@ -4089,7 +4415,7 @@ const App: React.FC = () => {
                   </div>
 
                   {/* Sede, Fecha y Hora */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className={`grid grid-cols-1 ${preselectedDate ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3`}>
                     <div>
                       <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Sede / Filial</label>
                       <select
@@ -4101,25 +4427,33 @@ const App: React.FC = () => {
                         {filiales.length > 0 ? filiales.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>) : <option disabled>No hay filiales activas</option>}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</label>
-                      <input
-                        type="date"
-                        required
-                        className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-slate-800 shadow-sm"
-                        value={appointmentDate}
-                        onChange={(e) => setAppointmentDate(e.target.value)}
-                      />
-                    </div>
+                    {!preselectedDate && (
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</label>
+                        <input
+                          type="date"
+                          required
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-slate-800 shadow-sm"
+                          value={appointmentDate}
+                          onChange={(e) => setAppointmentDate(e.target.value)}
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Hora</label>
-                      <input
-                        type="time"
+                      <select
                         required
                         className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-slate-800 shadow-sm"
                         value={appointmentTime}
                         onChange={(e) => setAppointmentTime(e.target.value)}
-                      />
+                      >
+                        <option value="" disabled>Seleccione...</option>
+                        {getAvailableHoursForDateStr(appointmentDate).map((h) => (
+                          <option key={h} value={h}>
+                            {formatHour12(h)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -4148,7 +4482,8 @@ const App: React.FC = () => {
                         newStudents,
                         filialId: selectedFilialId,
                         fecha_cita: appointmentDate,
-                        hora_cita: appointmentTime
+                        hora_cita: appointmentTime,
+                        observaciones: ''
                       });
                       setIsConfirmingSave(true);
                     }}
