@@ -104,9 +104,10 @@ const StatCard: React.FC<{
 
 const StatusBadge: React.FC<{ status: AppointmentStatus }> = ({ status }) => {
   const configs = {
-    [AppointmentStatus.PENDING]: { label: 'Pendiente', classes: 'bg-amber-50 text-amber-600 border-amber-100', icon: <Clock size={12} /> },
-    [AppointmentStatus.VERIFIED]: { label: 'Verificado', classes: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: <CheckCircle2 size={12} /> },
-    [AppointmentStatus.CANCELLED]: { label: 'Cancelado', classes: 'bg-rose-50 text-rose-600 border-rose-100', icon: <XCircle size={12} /> }
+    [AppointmentStatus.PENDING]: { label: 'Agendado', classes: 'bg-amber-50 text-amber-600 border-amber-100', icon: <Clock size={12} /> },
+    [AppointmentStatus.VERIFIED]: { label: 'Confirmado', classes: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: <CheckCircle2 size={12} /> },
+    [AppointmentStatus.CANCELLED]: { label: 'Cancelado', classes: 'bg-rose-50 text-rose-600 border-rose-100', icon: <XCircle size={12} /> },
+    [AppointmentStatus.CONVERTED]: { label: 'Convertido', classes: 'bg-purple-50 text-purple-600 border-purple-100', icon: <CheckCircle2 size={12} /> }
   };
   const config = configs[status] || configs[AppointmentStatus.PENDING];
   return (
@@ -123,7 +124,7 @@ const ConfirmAlert: React.FC<{ config: any; onClose: () => void }> = ({ config, 
       <div className="bg-white/80 backdrop-blur-xl rounded-[20px] w-full max-w-[270px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-white/50">
         <div className="p-5 pt-6 text-center">
           <h3 className="text-[17px] font-bold text-slate-900 mb-1 leading-snug">{config.title}</h3>
-          <p className="text-[13px] text-slate-600 leading-tight px-1 font-medium">{config.message}</p>
+          <p className="text-[14px] text-slate-600 leading-tight px-1 font-medium">{config.message}</p>
         </div>
         <div className="flex border-t border-slate-200/60 mt-1">
           {!config.isAlertOnly && (
@@ -166,8 +167,19 @@ const App: React.FC = () => {
   const [coloresCorporativos, setColoresCorporativos] = useState<ColorCorporativo[]>([]);
   
   // --- Estados de Navegación Lateral y Submenú ---
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [isWebManagementOpen, setIsWebManagementOpen] = useState(false);
+  const [citasView, setCitasView] = useState<'calendar' | 'list'>('calendar');
+  const [calendarWeekStart, setCalendarWeekStart] = useState<Date>(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(now.getFullYear(), now.getMonth(), diff);
+  });
+  const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null);
+  const [navCount, setNavCount] = useState(0);
+  const [slideOffset, setSlideOffset] = useState(-11.111);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Auto-abrir Gestión Web si la vista activa es de ese grupo
   useEffect(() => {
@@ -237,6 +249,29 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [selectedAlumnoId, setSelectedAlumnoId] = useState<number | null>(null);
+
+  // Nuevos estados para el flujo de reserva interactivo
+  const [schedulingFlow, setSchedulingFlow] = useState<'existing' | 'new'>('existing');
+  const [selectedFilialId, setSelectedFilialId] = useState<number | null>(null);
+  const [searchStudentTerm, setSearchStudentTerm] = useState('');
+  const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
+
+  // Flujo Matrícula Nueva
+  const [newStudentType, setNewStudentType] = useState<'dependent' | 'independent'>('dependent');
+  const [apoderadoNombre, setApoderadoNombre] = useState('');
+  const [apoderadoTelefono, setApoderadoTelefono] = useState('');
+  const [newStudents, setNewStudents] = useState<Array<{ nombre_completo: string; edad: string }>>([
+    { nombre_completo: '', edad: '' }
+  ]);
+
+  // Cita
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
+
+  // Modal de Confirmación
+  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+  const [pendingBookingPayload, setPendingBookingPayload] = useState<any>(null);
 
 
   // Rescheduling State
@@ -280,6 +315,51 @@ const App: React.FC = () => {
     fetchAllData();
   }, []);
 
+  // Alumnos filtrados por sede y término de búsqueda predictiva
+  const matchedAlumnos = useMemo(() => {
+    if (!selectedFilialId) return [];
+    
+    // Alumnos que tienen citas en la filial seleccionada
+    const studentIdsAtFilial = new Set(
+      appointments.filter(a => a.id_filial === selectedFilialId).map(a => a.id_alumno)
+    );
+    // Alumnos que tienen citas registradas en general en el sistema
+    const scheduledStudentIds = new Set(appointments.map(a => a.id_alumno));
+    
+    return alumnos.filter(al => {
+      // Filtrar por sede (pertenece a la sede si ya tuvo cita allí, o si no tiene ninguna cita en todo el sistema)
+      const matchesFilial = studentIdsAtFilial.has(al.id) || !scheduledStudentIds.has(al.id);
+      if (!matchesFilial) return false;
+      
+      // Filtrar por término de búsqueda
+      return al.nombre_completo.toLowerCase().includes(searchStudentTerm.toLowerCase());
+    });
+  }, [alumnos, appointments, selectedFilialId, searchStudentTerm]);
+
+  // Sync form states when appointment creation modal is opened/closed
+  useEffect(() => {
+    if (isModalOpen && activeView === 'citas') {
+      if (filiales.length > 0 && selectedFilialId === null) {
+        setSelectedFilialId(filiales[0].id);
+      }
+    } else if (!isModalOpen) {
+      // Reset all inputs when closing
+      setSchedulingFlow('existing');
+      setSelectedFilialId(null);
+      setSearchStudentTerm('');
+      setIsStudentDropdownOpen(false);
+      setSelectedAlumnoId(null);
+      setNewStudentType('dependent');
+      setApoderadoNombre('');
+      setApoderadoTelefono('');
+      setNewStudents([{ nombre_completo: '', edad: '' }]);
+      setAppointmentDate('');
+      setAppointmentTime('');
+      setIsConfirmingSave(false);
+      setPendingBookingPayload(null);
+    }
+  }, [isModalOpen, activeView, filiales]);
+
   const fetchAllData = async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
@@ -321,7 +401,9 @@ const App: React.FC = () => {
 
           return {
             ...a,
-            estado: a.estado?.toUpperCase(),
+            estado: a.estado?.toUpperCase() === 'PENDIENTE' ? AppointmentStatus.PENDING :
+                    a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.VERIFIED :
+                    a.estado?.toUpperCase(),
             alumno_nombre: alumnoData?.nombre_completo || 'Sin nombre',
             filial_nombre: filialData?.nombre || 'Sin sede'
           };
@@ -352,11 +434,12 @@ const App: React.FC = () => {
     const total = appointments.length;
     const verified = appointments.filter(a => a.estado === AppointmentStatus.VERIFIED).length;
     const pending = appointments.filter(a => a.estado === AppointmentStatus.PENDING).length;
+    const converted = appointments.filter(a => a.estado === AppointmentStatus.CONVERTED).length;
     return {
       totalAppointments: total,
       verifiedCount: verified,
       pendingCount: pending,
-      conversionRate: total > 0 ? (verified / total) * 100 : 0
+      conversionRate: total > 0 ? (converted / total) * 100 : 0
     };
   }, [appointments]);
 
@@ -398,49 +481,149 @@ const App: React.FC = () => {
     });
   };
 
-  const handleAddAppointment = async (newApp: any) => {
-    const student = alumnos.find(al => al.id === Number(newApp.id_alumno));
-    const esIndependiente = student ? !student.id_apoderado : (newApp.tipo_persona === 'independiente');
+  const handleAddAppointment = async (booking: any) => {
+    setLoading(true);
+    try {
+      if (booking.flow === 'existing') {
+        const student = alumnos.find(al => al.id === booking.alumnoId);
+        const esIndependiente = student ? !student.id_apoderado : true;
 
-    const payload = {
-      id_alumno: Number(newApp.id_alumno),
-      id_filial: Number(newApp.id_filial),
-      fecha_cita: newApp.fecha_cita,
-      hora_cita: newApp.hora_cita,
-      tipo_persona: esIndependiente ? 'independiente' : 'dependiente',
-      estado: AppointmentStatus.PENDING,
-      creado_en: new Date().toISOString()
-    };
+        const payload = {
+          id_alumno: booking.alumnoId,
+          id_filial: booking.filialId,
+          fecha_cita: booking.fecha_cita,
+          hora_cita: booking.hora_cita,
+          tipo_persona: esIndependiente ? 'independiente' : 'dependiente',
+          estado: AppointmentStatus.PENDING,
+          creado_en: new Date().toISOString()
+        };
 
-    const { data, error } = await supabase
-      .from('citas')
-      .insert([payload])
-      .select(`
-        *,
-        alumnos!citas_id_alumno_fkey (nombre_completo),
-        filiales!citas_id_filial_fkey (nombre)
-      `)
-      .single();
+        const { data, error } = await supabase
+          .from('citas')
+          .insert([payload])
+          .select(`
+            *,
+            alumnos!citas_id_alumno_fkey (nombre_completo),
+            filiales!citas_id_filial_fkey (nombre)
+          `)
+          .single();
 
-    if (!error && data) {
-      const transformed = {
-        ...data,
-        alumno_nombre: data.alumnos?.nombre_completo,
-        filial_nombre: data.filiales?.nombre
-      };
-      
-      setAppointments(prev => [transformed, ...prev].sort((a: any, b: any) => {
-        const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
-        const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
-        if (timeA !== timeB) {
-          return timeB - timeA;
+        if (error) throw error;
+        if (data) {
+          const transformed = {
+            ...data,
+            alumno_nombre: data.alumnos?.nombre_completo,
+            filial_nombre: data.filiales?.nombre,
+            estado: data.estado?.toUpperCase() === 'PENDIENTE' ? AppointmentStatus.PENDING :
+                    data.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.VERIFIED :
+                    data.estado?.toUpperCase()
+          };
+          setAppointments(prev => [transformed, ...prev].sort((a: any, b: any) => {
+            const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
+            const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
+            if (timeA !== timeB) return timeB - timeA;
+            return b.id - a.id;
+          }));
         }
-        return b.id - a.id;
-      }));
-      
+      } else {
+        // flow === 'new'
+        let apoderadoId: number | null = null;
+        let newApoObj: any = null;
+
+        if (booking.newStudentType === 'dependent') {
+          // 1. Insert apoderado
+          const apoPayload = {
+            nombre_completo: booking.apoderadoNombre,
+            telefono: booking.apoderadoTelefono,
+            creado_en: new Date().toISOString()
+          };
+          const { data: apoData, error: apoError } = await supabase
+            .from('apoderados')
+            .insert([apoPayload])
+            .select()
+            .single();
+
+          if (apoError) throw apoError;
+          apoderadoId = apoData.id;
+          newApoObj = apoData;
+        }
+
+        // 2. Insert alumnos
+        const newAlumnosList: any[] = [];
+        const alumnosToInsert = booking.newStudents.map((st: any) => ({
+          nombre_completo: st.nombre_completo,
+          edad: Number(st.edad),
+          telefono: booking.newStudentType === 'independent' ? booking.apoderadoTelefono : '',
+          id_apoderado: apoderadoId,
+          creado_en: new Date().toISOString()
+        }));
+
+        const { data: alData, error: alError } = await supabase
+          .from('alumnos')
+          .insert(alumnosToInsert)
+          .select();
+
+        if (alError) throw alError;
+        newAlumnosList.push(...alData);
+
+        // 3. Insert appointments
+        const appointmentsToInsert = alData.map((al: any) => ({
+          id_alumno: al.id,
+          id_filial: booking.filialId,
+          fecha_cita: booking.fecha_cita,
+          hora_cita: booking.hora_cita,
+          tipo_persona: booking.newStudentType === 'independent' ? 'independiente' : 'dependiente',
+          estado: AppointmentStatus.PENDING,
+          creado_en: new Date().toISOString()
+        }));
+
+        const { data: appData, error: appError } = await supabase
+          .from('citas')
+          .insert(appointmentsToInsert)
+          .select(`
+            *,
+            alumnos!citas_id_alumno_fkey (nombre_completo),
+            filiales!citas_id_filial_fkey (nombre)
+          `);
+
+        if (appError) throw appError;
+
+        // 4. Update local states
+        if (newApoObj) {
+          setApoderados(prev => [newApoObj, ...prev]);
+        }
+        setAlumnos(prev => [...newAlumnosList, ...prev]);
+
+        const transformedApps = appData.map((a: any) => ({
+          ...a,
+          alumno_nombre: a.alumnos?.nombre_completo,
+          filial_nombre: a.filiales?.nombre,
+          estado: a.estado?.toUpperCase() === 'PENDIENTE' ? AppointmentStatus.PENDING :
+                  a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.VERIFIED :
+                  a.estado?.toUpperCase()
+        }));
+
+        setAppointments(prev => [...transformedApps, ...prev].sort((a: any, b: any) => {
+          const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
+          const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
+          if (timeA !== timeB) return timeB - timeA;
+          return b.id - a.id;
+        }));
+      }
+
       setIsModalOpen(false);
-    } else {
-      alert("Error al crear la cita: " + (error?.message || "Error desconocido"));
+      setAlertConfig({
+        isOpen: true,
+        title: 'Éxito',
+        message: 'La cita ha sido registrada con éxito.',
+        isAlertOnly: true,
+        confirmText: 'Aceptar'
+      });
+    } catch (err: any) {
+      console.error("Error saving appointment:", err);
+      alert("Error al guardar la cita: " + (err.message || "Error desconocido"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -452,7 +635,8 @@ const App: React.FC = () => {
       nombre_completo: newAl.nombre_completo,
       edad: Number(newAl.edad),
       telefono: esDependiente ? '' : newAl.telefono,
-      id_apoderado: esDependiente ? Number(newAl.id_apoderado) : null
+      id_apoderado: esDependiente ? Number(newAl.id_apoderado) : null,
+      creado_en: new Date().toISOString()
     };
     const { data, error } = await supabase.from('alumnos').insert([payload]).select().single();
     if (!error && data) {
@@ -468,7 +652,8 @@ const App: React.FC = () => {
   const handleAddApoderado = async (newAp: any) => {
     const payload = {
       nombre_completo: newAp.nombre_completo,
-      telefono: newAp.telefono
+      telefono: newAp.telefono,
+      creado_en: new Date().toISOString()
     };
     const { data, error } = await supabase.from('apoderados').insert([payload]).select().single();
     if (!error && data) {
@@ -919,9 +1104,9 @@ const App: React.FC = () => {
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard title="Total Citas" value={stats.totalAppointments} icon={<Calendar className="text-blue-500" />} trend="Histórico" color="blue" />
-        <StatCard title="Verificadas" value={stats.verifiedCount} icon={<CheckCircle2 className="text-emerald-500" />} trend={`${((stats.verifiedCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="emerald" />
-        <StatCard title="Pendientes" value={stats.pendingCount} icon={<Clock className="text-amber-500" />} trend={`${((stats.pendingCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="amber" />
-        <StatCard title="Conversión" value={`${stats.conversionRate.toFixed(1)}%`} icon={<ArrowUpRight className="text-purple-500" />} trend="Meta: 80%" color="purple" />
+        <StatCard title="Confirmadas" value={stats.verifiedCount} icon={<CheckCircle2 className="text-emerald-500" />} trend={`${((stats.verifiedCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="emerald" />
+        <StatCard title="Agendadas" value={stats.pendingCount} icon={<Clock className="text-amber-500" />} trend={`${((stats.pendingCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="amber" />
+        <StatCard title="Conversión" value={`${stats.conversionRate.toFixed(1)}%`} icon={<ArrowUpRight className="text-purple-500" />} trend="Matrículas exitosas" color="purple" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -947,16 +1132,16 @@ const App: React.FC = () => {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
                         {isNew && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
                             Nuevo
                           </span>
                         )}
                         {isIndependiente ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
                             Ind.
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200">
                             Apod.
                           </span>
                         )}
@@ -974,7 +1159,12 @@ const App: React.FC = () => {
         <div className="glass-card rounded-3xl p-6 border border-slate-200">
           <h3 className="text-xl font-bold text-slate-800 mb-6">Alumnos Recientes</h3>
           <div className="space-y-4">
-            {alumnos.length > 0 ? alumnos.slice(0, 4).map(al => (
+            {alumnos.length > 0 ? [...alumnos].sort((a, b) => {
+              const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
+              const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
+              if (timeA !== timeB) return timeB - timeA;
+              return b.id - a.id;
+            }).slice(0, 4).map(al => (
               <div key={al.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
@@ -1033,7 +1223,7 @@ const App: React.FC = () => {
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-20">
             {/* Filtro de Fecha */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</label>
+              <label className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Fecha</label>
               <select
                 value={filterDateMode}
                 onChange={(e) => setFilterDateMode(e.target.value as any)}
@@ -1059,14 +1249,14 @@ const App: React.FC = () => {
                     type="date"
                     value={filterDateStart}
                     onChange={(e) => setFilterDateStart(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-[13px] font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none"
                     placeholder="Desde"
                   />
                   <input
                     type="date"
                     value={filterDateEnd}
                     onChange={(e) => setFilterDateEnd(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-[13px] font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none"
                     placeholder="Hasta"
                   />
                 </div>
@@ -1075,7 +1265,7 @@ const App: React.FC = () => {
 
             {/* Filtro de Filiales (Multi-select) */}
             <div className="space-y-2 relative">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filiales</label>
+              <label className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Filiales</label>
               <button
                 onClick={() => setIsFilialDropdownOpen(!isFilialDropdownOpen)}
                 className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-left flex justify-between items-center hover:border-emerald-300 transition-all text-sm font-bold text-slate-700"
@@ -1093,7 +1283,7 @@ const App: React.FC = () => {
                   <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                     <span className="text-xs font-bold text-slate-500">Selección</span>
                     {filterFiliales.length > 0 && (
-                      <button onClick={() => setFilterFiliales([])} className="text-[10px] font-bold text-rose-500 hover:underline">Borrar</button>
+                      <button onClick={() => setFilterFiliales([])} className="text-[13px] font-bold text-rose-500 hover:underline">Borrar</button>
                     )}
                   </div>
                   <div className="space-y-1">
@@ -1120,7 +1310,7 @@ const App: React.FC = () => {
 
             {/* Filtro de Estado */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</label>
+              <label className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Estado</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as any)}
@@ -1142,6 +1332,214 @@ const App: React.FC = () => {
 
           </div>
         )}
+      </div>
+    );
+  };
+
+  // --- Vista Calendario Semanal de Citas ---
+  const renderCitasCalendar = () => {
+    const DAY_NAMES = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+    const MONTH_NAMES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+    const weekDays = Array.from({ length: 9 }, (_, i) => {
+      const d = new Date(calendarWeekStart);
+      d.setDate(d.getDate() + (i - 1));
+      return d;
+    });
+
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    const fmtDate = (d: Date) => {
+      const y = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const dy = String(d.getDate()).padStart(2, '0');
+      return `${y}-${mo}-${dy}`;
+    };
+
+    const fmtTime = (hora: string) => {
+      const [h, m] = hora.split(':').map(Number);
+      const period = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
+    };
+
+    const navigateWeek = (dir: 'prev' | 'next') => {
+      if (isTransitioning) return;
+      setIsTransitioning(true);
+      setSlideOffset(dir === 'next' ? -22.222 : 0);
+      setTimeout(() => {
+        setCalendarWeekStart(prev => {
+          const d = new Date(prev);
+          d.setDate(d.getDate() + (dir === 'next' ? 1 : -1));
+          return d;
+        });
+        setSlideOffset(-11.111);
+        setIsTransitioning(false);
+      }, 350);
+    };
+
+    const goToToday = () => {
+      if (isTransitioning) return;
+      const now = new Date();
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const targetStart = new Date(now.getFullYear(), now.getMonth(), diff);
+      
+      if (targetStart.getTime() === calendarWeekStart.getTime()) return;
+      
+      setIsTransitioning(true);
+      const goingNext = targetStart.getTime() > calendarWeekStart.getTime();
+      setSlideOffset(goingNext ? -22.222 : 0);
+      
+      setTimeout(() => {
+        setCalendarWeekStart(targetStart);
+        setSlideOffset(-11.111);
+        setIsTransitioning(false);
+      }, 350);
+    };
+
+    const startDay = weekDays[1];
+    const endDay = weekDays[7];
+    const rangeLabel = `${DAY_NAMES[startDay.getDay()]} ${startDay.getDate()} ${MONTH_NAMES[startDay.getMonth()]} — ${DAY_NAMES[endDay.getDay()]} ${endDay.getDate()} ${MONTH_NAMES[endDay.getMonth()]} ${endDay.getFullYear()}`;
+
+    const STATUS_STYLES: Record<string, { bg: string; border: string; dot: string; text: string }> = {
+      [AppointmentStatus.PENDING]:   { bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-400',   text: 'text-amber-700'   },
+      [AppointmentStatus.VERIFIED]:  { bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500', text: 'text-emerald-700' },
+      [AppointmentStatus.CANCELLED]: { bg: 'bg-rose-50',    border: 'border-rose-200',    dot: 'bg-rose-400',    text: 'text-rose-700'    },
+      [AppointmentStatus.CONVERTED]: { bg: 'bg-purple-50',  border: 'border-purple-200',  dot: 'bg-purple-500',  text: 'text-purple-700'  },
+    };
+
+    return (
+      <div className="p-4">
+        {/* Barra de navegacion semanal */}
+        <div className="flex items-center gap-2 mb-4 bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-sm">
+          <button
+            onClick={() => navigateWeek('prev')}
+            className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all flex-shrink-0"
+            title="Semana anterior"
+          >
+            <ChevronLeft size={19} />
+          </button>
+          <button
+            onClick={() => navigateWeek('next')}
+            className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all flex-shrink-0"
+            title="Semana siguiente"
+          >
+            <ChevronLeft size={19} className="rotate-180" />
+          </button>
+          <span className="flex-1 text-center font-bold text-slate-700 text-base tracking-tight select-none">
+            {rangeLabel}
+          </span>
+          <button
+            onClick={goToToday}
+            className="px-5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-black text-base hover:bg-emerald-100 transition-all flex-shrink-0"
+          >
+            Hoy
+          </button>
+        </div>
+
+        {/* Grilla semanal de 9 columnas, con viewport de 7 columnas */}
+        <div className="overflow-hidden pb-2 w-full no-scrollbar">
+          <div 
+            className={`grid grid-cols-9 gap-2 ${
+              isTransitioning ? 'transition-transform duration-[350ms] ease-out' : ''
+            }`}
+            style={{ 
+              width: '128.571%', 
+              minWidth: '925px', 
+              transform: `translateX(${slideOffset}%)` 
+            }}
+          >
+            {weekDays.map((day) => {
+              const dateStr = fmtDate(day);
+              const isToday = day.getTime() === todayMidnight.getTime();
+              const dayApps = appointments
+                .filter(a => a.fecha_cita === dateStr)
+                .sort((a, b) => a.hora_cita.localeCompare(b.hora_cita));
+
+              return (
+                <div key={day.getTime()} className="flex flex-col">
+                  {/* Encabezado del dia */}
+                  <div className={`text-center px-2 py-3 rounded-2xl mb-2 transition-all ${
+                    isToday
+                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20'
+                      : 'bg-white border border-slate-200'
+                  }`}>
+                    <p className={`text-3xl font-black leading-none ${
+                      isToday ? 'text-white' : 'text-slate-800'
+                    }`}>
+                      {day.getDate()}
+                    </p>
+                    <p className={`text-[13px] font-black uppercase tracking-widest mt-1 ${
+                      isToday ? 'text-emerald-100' : 'text-slate-400'
+                    }`}>
+                      {DAY_NAMES[day.getDay()]}
+                    </p>
+                    <p className={`text-[12px] font-bold uppercase mt-0.5 ${
+                      isToday ? 'text-emerald-200' : 'text-slate-300'
+                    }`}>
+                      {MONTH_NAMES[day.getMonth()]}
+                    </p>
+                  </div>
+
+                  {/* Cards de citas del dia */}
+                  <div className="flex flex-col gap-2">
+                    {dayApps.length === 0 ? (
+                      <div className="min-h-[80px] rounded-xl border-2 border-dashed border-slate-100 flex items-center justify-center">
+                        <span className="text-slate-200 text-xl font-bold select-none">·</span>
+                      </div>
+                    ) : (
+                      dayApps.map(app => {
+                        const isIndependiente = app.tipo_persona === 'independiente';
+                        const s = STATUS_STYLES[app.estado] || STATUS_STYLES[AppointmentStatus.PENDING];
+                        const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
+                        const borderLeftColor = 
+                          app.estado === AppointmentStatus.VERIFIED ? 'border-l-emerald-500' :
+                          app.estado === AppointmentStatus.CONVERTED ? 'border-l-purple-500' :
+                          app.estado === AppointmentStatus.CANCELLED ? 'border-l-rose-500' : 'border-l-amber-500';
+                        return (
+                          <button
+                            key={app.id}
+                            onClick={() => openAppointmentDetails(app)}
+                            className={`w-full text-left p-3 rounded-2xl bg-white border border-slate-100 border-l-[5px] ${borderLeftColor} shadow-sm hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] flex flex-col gap-2`}
+                          >
+                            <div className="flex items-center justify-between w-full gap-2">
+                              <div className="flex items-center gap-1 text-[12px] font-extrabold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
+                                <Clock size={12} className="text-slate-400" />
+                                {fmtTime(app.hora_cita)}
+                              </div>
+                              {isNew && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[12px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
+                                  Nuevo
+                                </span>
+                              )}
+                            </div>
+                            
+                            <p className="text-[14px] font-extrabold text-slate-800 leading-snug line-clamp-2">
+                              {app.alumno_nombre}
+                            </p>
+
+                            <div className="flex items-center gap-1 text-[12px] text-slate-500 font-semibold truncate">
+                              <MapPin size={12} className="text-slate-400 flex-shrink-0" />
+                              <span className="truncate">{app.filial_nombre}</span>
+                            </div>
+
+                            <div className="flex items-center justify-between w-full mt-1 border-t border-slate-50 pt-2">
+                              <span className={`text-[12px] font-black uppercase px-2 py-0.5 rounded-lg border ${s.bg} ${s.text} ${s.border}`}>
+                                {isIndependiente ? 'Independiente' : 'Con Apoderado'}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   };
@@ -1180,101 +1578,148 @@ const App: React.FC = () => {
 
     return (
       <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
+        {/* Header con toggle de vista */}
         <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
           <div>
             <h3 className="text-xl font-bold text-slate-800">Control de Citas</h3>
             <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Gestión de la tabla "citas" en Supabase</p>
           </div>
-          <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 btn-glow">
-            <Plus size={18} /> Agendar Cita
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Toggle Vista Semana / Lista */}
+            <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
+              <button
+                onClick={() => setCitasView('calendar')}
+                className={`px-4 py-2 rounded-lg text-sm font-black transition-all ${
+                  citasView === 'calendar'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                📅 Semana
+              </button>
+              <button
+                onClick={() => setCitasView('list')}
+                className={`px-4 py-2 rounded-lg text-sm font-black transition-all ${
+                  citasView === 'list'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                ≡ Lista
+              </button>
+            </div>
+            <button
+              onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
+              className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 btn-glow"
+            >
+              <Plus size={18} /> Agendar Cita
+            </button>
+          </div>
         </div>
 
-        {/* Render Filters Here */}
-        <div className="px-6 pt-4">
-          {renderFilters()}
-        </div>
+        {/* Vista Calendario Semanal */}
+        {citasView === 'calendar' && renderCitasCalendar()}
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        {/* Vista Lista */}
+        {citasView === 'list' && (
+          <>
+            {/* Render Filters Here */}
+            <div className="px-6 pt-4">
+              {renderFilters()}
+            </div>
 
-            <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-4 text-left">Alumno</th>
-                <th className="px-6 py-4 text-left">Filial</th>
-                <th className="px-6 py-4 text-left">Programación</th>
-                <th className="px-6 py-4 text-center">Estado Operativo</th>
-                <th className="px-6 py-4 text-right">Gestión</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {filtered.length > 0 ? filtered.map(app => {
-                const al = alumnos.find(a => a.id === app.id_alumno);
-                const isIndependiente = app.tipo_persona === 'independiente' || !al?.id_apoderado;
-                const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
-                return (
-                  <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
-                        {isNew && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm shadow-amber-200 animate-pulse">
-                            <Sparkles size={9} /> Nuevo
-                          </span>
-                        )}
-                        {isIndependiente ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
-                            Independiente
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
-                            Con Apoderado
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase">ID: {app.id_alumno}</p>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 text-slate-600 font-bold text-sm">
-                        <MapPin size={14} className="text-emerald-500" />
-                        {app.filial_nombre}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="text-sm font-black text-slate-700 capitalize">{formatFriendlyDate(app.fecha_cita)}</div>
-                      <div className="text-[11px] text-emerald-600 font-black bg-emerald-50 inline-block px-1.5 rounded mt-1 shadow-sm border border-emerald-100">{app.hora_cita}</div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex justify-center">
-                        <StatusBadge status={app.estado} />
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        onClick={() => openAppointmentDetails(app)}
-                        className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded-xl font-bold text-xs flex items-center gap-2 ml-auto transition-all"
-                      >
-                        <Eye size={16} /> Ver Cita
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+
+                <thead className="bg-slate-50 text-slate-500 text-[13px] font-black uppercase tracking-widest border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-4 text-left">Alumno</th>
+                    <th className="px-6 py-4 text-left">Filial</th>
+                    <th className="px-6 py-4 text-left">Programación</th>
+                    <th className="px-6 py-4 text-left">Registro</th>
+                    <th className="px-6 py-4 text-center">Estado Operativo</th>
+                    <th className="px-6 py-4 text-right">Gestión</th>
                   </tr>
-                );
-              }) : (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
-                    No se encontraron registros de citas
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filtered.length > 0 ? filtered.map(app => {
+                    const al = alumnos.find(a => a.id === app.id_alumno);
+                    const isIndependiente = app.tipo_persona === 'independiente' || !al?.id_apoderado;
+                    const isNew = app.creado_en && (new Date().getTime() - new Date(app.creado_en).getTime() < 12 * 60 * 60 * 1000);
+                    return (
+                      <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <p className="font-bold text-slate-800 leading-none">{app.alumno_nombre}</p>
+                            {isNew && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm shadow-amber-200 animate-pulse">
+                                <Sparkles size={9} /> Nuevo
+                              </span>
+                            )}
+                            {isIndependiente ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+                                Independiente
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
+                                Con Apoderado
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[13px] text-slate-400 font-bold mt-1.5 uppercase">ID: {app.id_alumno}</p>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2 text-slate-600 font-bold text-sm">
+                            <MapPin size={14} className="text-emerald-500" />
+                            {app.filial_nombre}
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-black text-slate-700 capitalize">{formatFriendlyDate(app.fecha_cita)}</div>
+                          <div className="text-[14px] text-emerald-600 font-black bg-emerald-50 inline-block px-1.5 rounded mt-1 shadow-sm border border-emerald-100">{app.hora_cita}</div>
+                        </td>
+                        <td className="px-6 py-5 text-[13px] text-slate-500 font-bold">
+                          {app.creado_en ? new Date(app.creado_en).toLocaleString('es-PE') : '—'}
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex justify-center">
+                            <StatusBadge status={app.estado} />
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          <button
+                            onClick={() => openAppointmentDetails(app)}
+                            className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded-xl font-bold text-xs flex items-center gap-2 ml-auto transition-all"
+                          >
+                            <Eye size={16} /> Ver Cita
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
+                        No se encontraron registros de citas
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     );
   };
 
   const renderAlumnos = () => {
-    const filtered = alumnos.filter(al => al.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()));
+    const sorted = [...alumnos].sort((a, b) => {
+      const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
+      const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return b.id - a.id;
+    });
+    const filtered = sorted.filter(al => al.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()));
     return (
       <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
@@ -1316,7 +1761,7 @@ const App: React.FC = () => {
                       <span className="text-slate-300 font-bold">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{new Date(al.creado_en).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{al.creado_en ? new Date(al.creado_en).toLocaleString('es-PE') : '—'}</td>
                   <td className="px-6 py-4 text-right">
                     <button onClick={() => handleDeleteAlumno(al.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
                   </td>
@@ -1353,7 +1798,7 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map(filial => (
           <div key={filial.id} className="glass-card rounded-3xl p-6 border border-slate-200 relative overflow-hidden group flex flex-col h-full">
-            <div className={`absolute top-0 right-0 px-4 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest ${filial.activo ? 'bg-emerald-500 text-white' : 'bg-slate-400 text-white'}`}>
+            <div className={`absolute top-0 right-0 px-4 py-1 rounded-bl-2xl text-[13px] font-black uppercase tracking-widest ${filial.activo ? 'bg-emerald-500 text-white' : 'bg-slate-400 text-white'}`}>
               {filial.activo ? 'Activa' : 'Inactiva'}
             </div>
 
@@ -1372,7 +1817,7 @@ const App: React.FC = () => {
                 <div>
                   <p className="text-xs font-black text-slate-400 uppercase tracking-wider leading-none mb-1">Dirección</p>
                   <p className="text-sm text-slate-700 font-medium">{filial.direccion}</p>
-                  {filial.referencia && <p className="text-[11px] text-slate-400 font-medium italic">Ref: {filial.referencia}</p>}
+                  {filial.referencia && <p className="text-[14px] text-slate-400 font-medium italic">Ref: {filial.referencia}</p>}
                 </div>
               </div>
 
@@ -1535,7 +1980,13 @@ const App: React.FC = () => {
   };
 
   const renderApoderados = () => {
-    const filtered = apoderados.filter(ap => ap.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()));
+    const sorted = [...apoderados].sort((a, b) => {
+      const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
+      const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return b.id - a.id;
+    });
+    const filtered = sorted.filter(ap => ap.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()));
     return (
       <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
@@ -1566,7 +2017,7 @@ const App: React.FC = () => {
                   <td className="px-6 py-4 text-slate-600 flex items-center gap-2 font-medium">
                     <Phone size={14} className="text-slate-400" /> {ap.telefono}
                   </td>
-                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{new Date(ap.creado_en).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{ap.creado_en ? new Date(ap.creado_en).toLocaleString('es-PE') : '—'}</td>
                   <td className="px-6 py-4 text-right">
                     <button onClick={() => handleDeleteApoderado(ap.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
                   </td>
@@ -1738,7 +2189,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 mb-3 text-slate-400 font-black text-[10px] uppercase tracking-widest">
+                  <div className="flex items-center gap-2 mb-3 text-slate-400 font-black text-[13px] uppercase tracking-widest">
                     <User size={14} /> Datos del Alumno
                   </div>
                   <p className="text-xl font-bold text-slate-800">{detailsAppointment.alumno_nombre}</p>
@@ -1749,11 +2200,11 @@ const App: React.FC = () => {
                 </div>
                 <div className="mt-4">
                   {isIndependiente ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
                       Alumno Independiente
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
                       Con Apoderado
                     </span>
                   )}
@@ -1764,7 +2215,7 @@ const App: React.FC = () => {
                 isIndependiente ? 'bg-emerald-50/40 border-emerald-100' : 'bg-blue-50/40 border-blue-100'
               }`}>
                 <div>
-                  <div className={`flex items-center gap-2 mb-3 font-black text-[10px] uppercase tracking-widest ${
+                  <div className={`flex items-center gap-2 mb-3 font-black text-[13px] uppercase tracking-widest ${
                     isIndependiente ? 'text-emerald-500' : 'text-blue-500'
                   }`}>
                     <Phone size={14} /> Datos de Contacto
@@ -1772,7 +2223,7 @@ const App: React.FC = () => {
                   <p className="text-xl font-bold text-slate-800">
                     {isIndependiente ? detailsAppointment.alumno_nombre : (apoderadoDetalle?.nombre_completo || 'Sin apoderado')}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                  <p className="text-[13px] text-slate-400 font-bold uppercase mt-1">
                     {isIndependiente ? 'Contacto Directo (Alumno)' : 'Contacto Apoderado'}
                   </p>
                   <div className="mt-4 flex items-center gap-2 text-xl font-black text-slate-700">
@@ -1853,6 +2304,14 @@ const App: React.FC = () => {
                       Confirmar
                     </button>
                   )}
+                  {detailsAppointment.estado !== AppointmentStatus.CONVERTED && (
+                    <button
+                      onClick={() => handleStatusChangeFromModal(AppointmentStatus.CONVERTED)}
+                      className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-xs font-bold transition-colors"
+                    >
+                      Convertir
+                    </button>
+                  )}
                   {detailsAppointment.estado !== AppointmentStatus.CANCELLED && (
                     <button
                       onClick={() => handleStatusChangeFromModal(AppointmentStatus.CANCELLED)}
@@ -1887,7 +2346,7 @@ const App: React.FC = () => {
                         <span className="font-bold text-slate-800 text-sm">{monthNames[currentCalendarDate.getMonth()]} {currentCalendarDate.getFullYear()}</span>
                         <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))} className="p-1 hover:bg-white rounded-lg"><ChevronLeft size={16} className="rotate-180" /></button>
                       </div>
-                      <div className="grid grid-cols-7 gap-1 text-[10px] text-center font-black text-slate-400 uppercase mb-1">
+                      <div className="grid grid-cols-7 gap-1 text-[13px] text-center font-black text-slate-400 uppercase mb-1">
                         <div>D</div><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div>
                       </div>
                       <div className="grid grid-cols-7 gap-1 place-items-center">
@@ -2196,7 +2655,7 @@ const App: React.FC = () => {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+              <thead className="bg-slate-50 text-slate-500 text-[13px] font-black uppercase tracking-widest border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-left">Previa</th>
                   <th className="px-6 py-4 text-left">Alumno</th>
@@ -2276,11 +2735,11 @@ const App: React.FC = () => {
           <div className="p-6 overflow-y-auto">
             <form onSubmit={handleSaveHistoria} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre del Alumno</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre del Alumno</label>
                 <input name="nombre_alumno" required defaultValue={editingHistoria?.nombre_alumno} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Mar&#237;a L&#243;pez" />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Programa</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Programa</label>
                 <select name="programa" required defaultValue={editingHistoria?.programa ?? ''} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
                   <option value="">Seleccionar...</option>
                   <option>Profesional</option>
@@ -2289,22 +2748,22 @@ const App: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Narraci&#243;n / Testimonio <span className="text-slate-300 font-medium normal-case">(m&#225;x. 300 car.)</span></label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Narraci&#243;n / Testimonio <span className="text-slate-300 font-medium normal-case">(m&#225;x. 300 car.)</span></label>
                 <textarea name="narracion" required maxLength={300} defaultValue={editingHistoria?.narracion} rows={4} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm resize-none" placeholder="Testimonio del alumno..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Palabras por Minuto</label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Palabras por Minuto</label>
                   <input name="palabras_por_min" required defaultValue={editingHistoria?.palabras_por_min} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="e.g. 1,200 ppm" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Orden en Carrusel</label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Orden en Carrusel</label>
                   <input name="orden" type="number" min={0} defaultValue={editingHistoria?.orden ?? 0} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
                 </div>
               </div>
               {coloresCorporativos.length > 0 && (
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Color de Fondo</label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-2">Color de Fondo</label>
                   <div className="flex flex-wrap gap-3">
                     {coloresCorporativos.map(c => (
                       <button key={c.id} type="button" onClick={() => setHistoriaColorSeleccionado(c.id)} title={c.nombre}
@@ -2318,7 +2777,7 @@ const App: React.FC = () => {
                 </div>
               )}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Foto del Alumno</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Foto del Alumno</label>
                 {/* File input + Ajustar button */}
                 <div className="flex items-center gap-2 mb-3">
                   <input type="file" accept="image/*" onChange={(e) => {
@@ -2351,13 +2810,13 @@ const App: React.FC = () => {
                       <div className="pointer-events-none absolute" style={{ left: `calc(${ajustePosX}% - 12px)`, top: `calc(${ajustePosY}% - 12px)` }}>
                         <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg" />
                       </div>
-                      <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">3 : 2</div>
-                      <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{ajustePosX}% · {ajustePosY}%</div>
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[9px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
+                      <div className="absolute top-2 left-2 bg-black/50 text-white text-[13px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">3 : 2</div>
+                      <div className="absolute top-2 right-2 bg-black/50 text-white text-[13px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{ajustePosX}% · {ajustePosY}%</div>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[12px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
                     </div>
                     <div className="bg-slate-900 p-4 space-y-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-white/60 text-[10px] font-black uppercase tracking-widest w-12">Zoom</span>
+                        <span className="text-white/60 text-[13px] font-black uppercase tracking-widest w-12">Zoom</span>
                         <input type="range" min="1" max="2.5" step="0.05" value={ajusteScale} onChange={(e) => setAjusteScale(parseFloat(e.target.value))} className="flex-1 accent-emerald-400 cursor-pointer" />
                         <span className="text-white/80 text-xs font-black w-10 text-right">{ajusteScale.toFixed(2)}x</span>
                       </div>
@@ -2651,7 +3110,7 @@ const App: React.FC = () => {
                 {/* Name & path */}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-800 truncate">{img.nombre || '—'}</p>
-                  <p className="text-[11px] text-slate-400 truncate font-mono">{img.file_path}</p>
+                  <p className="text-[14px] text-slate-400 truncate font-mono">{img.file_path}</p>
                 </div>
 
                 {/* Active toggle */}
@@ -2726,7 +3185,7 @@ const App: React.FC = () => {
 
               {/* Nombre */}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Etiqueta descriptiva</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Etiqueta descriptiva</label>
                 <input
                   name="nombre"
                   defaultValue={carrusel02Editing?.nombre ?? ''}
@@ -2737,7 +3196,7 @@ const App: React.FC = () => {
 
               {/* File input + botón Ajustar */}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
                   {isEditing ? 'Nueva Imagen (opcional — reemplaza la actual)' : 'Imagen *'}
                 </label>
                 <div className="flex items-center gap-2">
@@ -2839,13 +3298,13 @@ const App: React.FC = () => {
                     >
                       <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg" />
                     </div>
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">16 : 9</div>
-                    <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{carrusel02PosX}% · {carrusel02PosY}%</div>
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[9px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[13px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">16 : 9</div>
+                    <div className="absolute top-2 right-2 bg-black/50 text-white text-[13px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{carrusel02PosX}% · {carrusel02PosY}%</div>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[12px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
                   </div>
                   <div className="bg-slate-900 p-4 space-y-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-white/60 text-[10px] font-black uppercase tracking-widest w-12">Zoom</span>
+                      <span className="text-white/60 text-[13px] font-black uppercase tracking-widest w-12">Zoom</span>
                       <input
                         type="range" min="1" max="2.5" step="0.05"
                         value={carrusel02Scale}
@@ -2921,7 +3380,7 @@ const App: React.FC = () => {
           <div className="flex flex-col md:flex-row h-full overflow-hidden">
             {/* Lista de colores */}
             <div className="flex-1 border-r border-slate-100 overflow-y-auto p-6 bg-slate-50/30 min-h-[300px]">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Colores Existentes</h4>
+              <h4 className="text-[13px] font-black text-slate-400 uppercase tracking-widest mb-4">Colores Existentes</h4>
               <div className="space-y-2">
                 {coloresCorporativos.map(c => (
                   <div key={c.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
@@ -2929,7 +3388,7 @@ const App: React.FC = () => {
                       <div className="w-8 h-8 rounded-full border border-slate-200 shadow-sm" style={{ backgroundColor: c.hex }}></div>
                       <div>
                         <p className="text-sm font-bold text-slate-700">{c.nombre}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">{c.hex}</p>
+                        <p className="text-[13px] text-slate-400 font-mono">{c.hex}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -2950,12 +3409,12 @@ const App: React.FC = () => {
 
             {/* Formulario */}
             <div className="w-full md:w-72 p-6 overflow-y-auto">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
+              <h4 className="text-[13px] font-black text-slate-400 uppercase tracking-widest mb-4">
                 {editingColor ? 'Editar Color' : 'Añadir Nuevo Color'}
               </h4>
               <form onSubmit={handleSaveColor} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre (ej. Esmeralda)</label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre (ej. Esmeralda)</label>
                   <input
                     required
                     value={colorFormNombre}
@@ -2964,7 +3423,7 @@ const App: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Color Hexadecimal</label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Color Hexadecimal</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
@@ -2983,7 +3442,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clase CSS (Tailwind) Opcional</label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clase CSS (Tailwind) Opcional</label>
                   <input
                     value={colorFormClaseCss}
                     onChange={e => setColorFormClaseCss(e.target.value)}
@@ -3020,8 +3479,8 @@ const App: React.FC = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 gradient-green text-white flex flex-col p-6 shadow-xl transition-transform duration-300 transform md:translate-x-0 md:static h-screen
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 gradient-green text-white flex flex-col p-6 shadow-xl transition-transform duration-300 transform h-screen
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex items-center justify-between gap-3 mb-10">
           <div className="flex items-center gap-3">
@@ -3096,14 +3555,23 @@ const App: React.FC = () => {
           </div>
         </nav>
 
-        <div className="mt-auto pt-6 border-t border-white/10 text-center">
-          <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Platinum Edition</p>
-          <p className="text-[9px] text-white/30 mt-1">Powered by Supabase</p>
-        </div>
+        {/* Handle (Hojal) for collapsing/expanding sidebar */}
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="absolute left-full top-1/2 -translate-y-1/2 w-9 h-20 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-2xl shadow-xl flex items-center justify-center border-y border-r border-emerald-500/20 transition-all duration-300 hover:w-10 active:scale-95 cursor-pointer z-50 group"
+          style={{ marginLeft: '-1px' }}
+          title={isSidebarOpen ? "Ocultar menú" : "Mostrar menú"}
+        >
+          {isSidebarOpen ? (
+            <ChevronLeft size={20} className="transition-transform duration-300 group-hover:-translate-x-0.5" />
+          ) : (
+            <ChevronRight size={20} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+          )}
+        </button>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 bg-[#f8fafc] overflow-y-auto">
+      <main className={`flex-1 p-4 md:p-8 bg-[#f8fafc] overflow-y-auto transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : 'ml-0'}`}>
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div className="flex items-center gap-4">
             {/* Hamburger menu button for mobile */}
@@ -3140,7 +3608,7 @@ const App: React.FC = () => {
             </div>
             <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2 px-5">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Conectado</span>
+              <span className="text-[13px] font-black text-slate-500 uppercase tracking-widest">Conectado</span>
             </div>
           </div>
         </header>
@@ -3162,61 +3630,535 @@ const App: React.FC = () => {
         {/* Modales Compartidos */}
         <Modal
           isOpen={isModalOpen}
-          onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
-          title={editingItem ? `Editar ${editingItem.nombre || 'Registro'}` : (activeView === 'citas' ? 'Agendar Nueva Cita' : activeView === 'alumnos' ? 'Registrar Alumno' : activeView === 'apoderados' ? 'Registrar Apoderado' : 'Nueva Filial')}
+          onClose={() => { setIsModalOpen(false); setEditingItem(null); setSelectedAlumnoId(null); }}
+          title={isConfirmingSave ? 'Confirmar Registro' : (editingItem ? `Editar ${editingItem.nombre || 'Registro'}` : (activeView === 'citas' ? 'Agendar Nueva Cita' : activeView === 'alumnos' ? 'Registrar Alumno' : activeView === 'apoderados' ? 'Registrar Apoderado' : 'Nueva Filial'))}
         >
-          {activeView === 'citas' ? (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              handleAddAppointment(Object.fromEntries(fd));
-            }} className="space-y-4">
-              {/* Tipo de persona */}
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Persona</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-100 transition-all">
-                    <input type="radio" name="tipo_persona" value="dependiente" defaultChecked className="text-blue-600" />
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm">Dependiente</p>
-                      <p className="text-[10px] text-slate-400">Tiene apoderado</p>
+          {isConfirmingSave && pendingBookingPayload ? (
+            /* Pantalla de Confirmación */
+            <div className="space-y-5">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm font-semibold flex gap-2">
+                <Info size={20} className="flex-shrink-0 mt-0.5 text-amber-600" />
+                <p>
+                  Por favor, revise los detalles a registrar antes de guardar permanentemente en la base de datos Supabase.
+                </p>
+              </div>
+
+              <div className="divide-y divide-slate-100 space-y-4">
+                {/* Detalles de la cita */}
+                <div className="space-y-2">
+                  <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Detalles de la Cita</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <p className="text-slate-500 font-bold">Filial/Sede:</p>
+                    <p className="text-slate-800 font-black">
+                      {filiales.find(f => f.id === pendingBookingPayload.filialId)?.nombre || '—'}
+                    </p>
+                    <p className="text-slate-500 font-bold">Fecha programada:</p>
+                    <p className="text-slate-800 font-black">{formatFriendlyDate(pendingBookingPayload.fecha_cita)}</p>
+                    <p className="text-slate-500 font-bold">Hora agendada:</p>
+                    <p className="text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 inline-block w-fit text-xs">
+                      {pendingBookingPayload.hora_cita}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Detalles de personas */}
+                <div className="pt-4 space-y-2">
+                  <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Alumnos y Contacto</h4>
+                  <div className="text-sm space-y-2">
+                    {pendingBookingPayload.flow === 'existing' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <p className="text-slate-500 font-bold">Flujo:</p>
+                        <p className="text-blue-600 font-black">Alumno ya registrado</p>
+                        <p className="text-slate-500 font-bold">Alumno:</p>
+                        <p className="text-slate-800 font-black">
+                          {alumnos.find(al => al.id === pendingBookingPayload.alumnoId)?.nombre_completo || '—'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <p className="text-slate-500 font-bold">Flujo:</p>
+                          <p className="text-emerald-600 font-black">Matrícula Nueva (Registro)</p>
+                          
+                          <p className="text-slate-500 font-bold">Tipo:</p>
+                          <p className="text-slate-800 font-black capitalize">
+                            {pendingBookingPayload.newStudentType === 'independent' ? 'Independiente' : 'Con Apoderado'}
+                          </p>
+
+                          {pendingBookingPayload.newStudentType === 'dependent' && (
+                            <>
+                              <p className="text-slate-500 font-bold">Apoderado:</p>
+                              <p className="text-slate-800 font-black">{pendingBookingPayload.apoderadoNombre}</p>
+                            </>
+                          )}
+
+                          <p className="text-slate-500 font-bold">Teléfono/Celular:</p>
+                          <p className="text-slate-800 font-black">{pendingBookingPayload.apoderadoTelefono}</p>
+                        </div>
+                        <div className="border-t border-slate-100 pt-2.5">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase mb-2">Hijos/Alumnos a registrar:</p>
+                          <div className="space-y-1.5">
+                            {pendingBookingPayload.newStudents.map((st: any, idx: number) => (
+                              <div key={idx} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-700">
+                                <span>{st.nombre_completo}</span>
+                                <span className="text-slate-400">{st.edad} años</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingSave(false)}
+                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-colors"
+                >
+                  Seguir Editando
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddAppointment(pendingBookingPayload)}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-100"
+                >
+                  Confirmar y Guardar
+                </button>
+              </div>
+            </div>
+          ) : activeView === 'citas' ? (
+            <div className="space-y-4">
+              {/* Flow Selector tabs */}
+              <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSchedulingFlow('existing');
+                    setSelectedAlumnoId(null);
+                    setSearchStudentTerm('');
+                  }}
+                  className={`flex-1 py-2.5 text-[13px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
+                    schedulingFlow === 'existing'
+                      ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Alumno Existente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSchedulingFlow('new');
+                    setSelectedAlumnoId(null);
+                    setSearchStudentTerm('');
+                  }}
+                  className={`flex-1 py-2.5 text-[13px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
+                    schedulingFlow === 'new'
+                      ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Matrícula Nueva
+                </button>
+              </div>
+
+              {schedulingFlow === 'existing' ? (
+                /* Flow A: Alumno Existente */
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Sede / Filial</label>
+                    <select
+                      value={selectedFilialId || ''}
+                      onChange={(e) => {
+                        setSelectedFilialId(Number(e.target.value) || null);
+                        setSelectedAlumnoId(null);
+                        setSearchStudentTerm('');
+                      }}
+                      className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm transition-all"
+                    >
+                      <option value="" disabled>Seleccione una filial...</option>
+                      {filiales.length > 0 ? filiales.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>) : <option disabled>No hay filiales activas</option>}
+                    </select>
+                  </div>
+
+                  {selectedFilialId ? (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {/* Buscador predictivo */}
+                      <div className="relative">
+                        <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Buscar Alumno</label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                          <input
+                            type="text"
+                            placeholder="Escriba el nombre del alumno..."
+                            className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                            value={searchStudentTerm}
+                            onChange={(e) => {
+                              setSearchStudentTerm(e.target.value);
+                              setIsStudentDropdownOpen(true);
+                              if (selectedAlumnoId) setSelectedAlumnoId(null);
+                            }}
+                            onFocus={() => setIsStudentDropdownOpen(true)}
+                          />
+                        </div>
+
+                        {/* Dropdown predictivo de alumnos */}
+                        {isStudentDropdownOpen && searchStudentTerm.trim() !== '' && (
+                          <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100">
+                            {matchedAlumnos.length > 0 ? (
+                              matchedAlumnos.map(al => (
+                                <button
+                                  key={al.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedAlumnoId(al.id);
+                                    setSearchStudentTerm(al.nombre_completo);
+                                    setIsStudentDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-sm text-slate-700 transition-colors flex items-center justify-between"
+                                >
+                                  <span>{al.nombre_completo}</span>
+                                  <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">
+                                    {al.id_apoderado ? 'Con Apoderado' : 'Independiente'}
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-center text-slate-400 text-xs font-bold italic">
+                                No se encontraron alumnos disponibles
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Panel de Información del Alumno Seleccionado */}
+                      {selectedAlumnoId && (
+                        <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 shadow-inner space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Tipo de Alumno:</span>
+                            {(() => {
+                              const al = alumnos.find(a => a.id === selectedAlumnoId);
+                              const apo = al && al.id_apoderado ? apoderados.find(ap => ap.id === al.id_apoderado) : null;
+                              const isInd = al ? !al.id_apoderado : true;
+                              return (
+                                <>
+                                  {isInd ? (
+                                    <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                                      Independiente
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs font-black text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                                      Con Apoderado
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                          {(() => {
+                            const al = alumnos.find(a => a.id === selectedAlumnoId);
+                            const apo = al && al.id_apoderado ? apoderados.find(ap => ap.id === al.id_apoderado) : null;
+                            if (apo) {
+                              return (
+                                <div className="text-xs font-bold text-slate-600 space-y-1">
+                                  <p>• Apoderado: <span className="font-extrabold text-slate-700">{apo.nombre_completo}</span></p>
+                                  <p>• Teléfono Apoderado: <span className="font-extrabold text-slate-700">{apo.telefono}</span></p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Fecha y Hora de la cita */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha</label>
+                          <input
+                            type="date"
+                            required
+                            className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                            value={appointmentDate}
+                            onChange={(e) => setAppointmentDate(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hora</label>
+                          <input
+                            type="time"
+                            required
+                            className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                            value={appointmentTime}
+                            onChange={(e) => setAppointmentTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedAlumnoId || !appointmentDate || !appointmentTime) {
+                            alert("Por favor, complete todos los campos requeridos.");
+                            return;
+                          }
+                          setPendingBookingPayload({
+                            flow: 'existing',
+                            filialId: selectedFilialId,
+                            alumnoId: selectedAlumnoId,
+                            fecha_cita: appointmentDate,
+                            hora_cita: appointmentTime
+                          });
+                          setIsConfirmingSave(true);
+                        }}
+                        className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 btn-glow cursor-pointer"
+                      >
+                        Registrar Cita
+                      </button>
                     </div>
-                  </label>
-                  <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-slate-200 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition-all">
-                    <input type="radio" name="tipo_persona" value="independiente" className="text-emerald-600" />
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm">Independiente</p>
-                      <p className="text-[10px] text-slate-400">Contacto propio</p>
+                  ) : (
+                    <div className="text-center text-slate-400 py-10 font-bold text-xs uppercase tracking-wider border border-dashed border-slate-200 rounded-3xl">
+                      Seleccione una sede para buscar alumnos
                     </div>
-                  </label>
+                  )}
                 </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Alumno Solicitante</label>
-                <select name="id_alumno" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
-                  {alumnos.length > 0 ? alumnos.map(al => <option key={al.id} value={al.id}>{al.nombre_completo}</option>) : <option disabled>No hay alumnos registrados</option>}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Sede / Filial</label>
-                <select name="id_filial" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
-                  {filiales.length > 0 ? filiales.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>) : <option disabled>No hay filiales activas</option>}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha</label>
-                  <input type="date" name="fecha_cita" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
+              ) : (
+                /* Flow B: Matrícula Nueva */
+                <div className="space-y-4">
+                  {/* Tipo de alumno nuevo */}
+                  <div>
+                    <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Alumno Nuevo</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewStudentType('dependent')}
+                        className={`flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          newStudentType === 'dependent'
+                            ? 'border-blue-500 bg-blue-50/50 text-blue-700'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          checked={newStudentType === 'dependent'}
+                          onChange={() => {}}
+                          className="pointer-events-none"
+                        />
+                        <div className="text-left">
+                          <p className="font-bold text-sm">Dependiente</p>
+                          <p className="text-[12px] text-slate-400 font-semibold leading-tight mt-0.5">Tiene apoderado</p>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewStudentType('independent');
+                          setNewStudents([{ nombre_completo: '', edad: '' }]);
+                        }}
+                        className={`flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          newStudentType === 'independent'
+                            ? 'border-emerald-500 bg-emerald-50/50 text-emerald-700'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          checked={newStudentType === 'independent'}
+                          onChange={() => {}}
+                          className="pointer-events-none"
+                        />
+                        <div className="text-left">
+                          <p className="font-bold text-sm">Independiente</p>
+                          <p className="text-[12px] text-slate-400 font-semibold leading-tight mt-0.5">Contacto propio</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Datos del Apoderado - sólo si es Dependiente */}
+                  {newStudentType === 'dependent' ? (
+                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3 shadow-inner">
+                      <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200/50 pb-1.5">Datos del Apoderado (Contacto Principal)</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre Completo</label>
+                          <input
+                            type="text"
+                            required
+                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                            placeholder="Ej. Maria Garcia"
+                            value={apoderadoNombre}
+                            onChange={(e) => setApoderadoNombre(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Celular de Contacto</label>
+                          <input
+                            type="text"
+                            required
+                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                            placeholder="Ej. 987654321"
+                            value={apoderadoTelefono}
+                            onChange={(e) => setApoderadoTelefono(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Celular de Contacto directo si es independiente */
+                    <div>
+                      <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular de Contacto</label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                        placeholder="Ej. 999888777"
+                        value={apoderadoTelefono}
+                        onChange={(e) => setApoderadoTelefono(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Campos dinámicos de los Alumnos */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest">
+                        {newStudentType === 'dependent' ? 'Datos de los Alumnos (Hijos)' : 'Datos del Alumno'}
+                      </label>
+                      {newStudentType === 'dependent' && (
+                        <button
+                          type="button"
+                          onClick={() => setNewStudents([...newStudents, { nombre_completo: '', edad: '' }])}
+                          className="text-xs font-black text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-100 flex items-center gap-1 cursor-pointer transition-all shadow-sm"
+                        >
+                          <Plus size={12} /> Añadir hijo
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                      {newStudents.map((st, idx) => (
+                        <div key={idx} className="flex gap-2 items-end p-3.5 bg-slate-50 border border-slate-100 rounded-xl relative group">
+                          <div className="flex-1 space-y-1">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</label>
+                            <input
+                              type="text"
+                              required
+                              className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                              placeholder="Ej. Luis Garcia"
+                              value={st.nombre_completo}
+                              onChange={(e) => {
+                                const updated = [...newStudents];
+                                updated[idx].nombre_completo = e.target.value;
+                                setNewStudents(updated);
+                              }}
+                            />
+                          </div>
+                          <div className="w-20 space-y-1">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Edad</label>
+                            <input
+                              type="number"
+                              required
+                              className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                              placeholder="Edad"
+                              value={st.edad}
+                              onChange={(e) => {
+                                const updated = [...newStudents];
+                                updated[idx].edad = e.target.value;
+                                setNewStudents(updated);
+                              }}
+                            />
+                          </div>
+                          {newStudents.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setNewStudents(newStudents.filter((_, i) => i !== idx))}
+                              className="p-2.5 text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-xl transition-all flex items-center justify-center cursor-pointer mb-0.5"
+                              title="Quitar"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sede, Fecha y Hora */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Sede / Filial</label>
+                      <select
+                        value={selectedFilialId || ''}
+                        onChange={(e) => setSelectedFilialId(Number(e.target.value) || null)}
+                        className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-slate-800 shadow-sm"
+                      >
+                        <option value="" disabled>Seleccione...</option>
+                        {filiales.length > 0 ? filiales.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>) : <option disabled>No hay filiales activas</option>}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</label>
+                      <input
+                        type="date"
+                        required
+                        className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-slate-800 shadow-sm"
+                        value={appointmentDate}
+                        onChange={(e) => setAppointmentDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Hora</label>
+                      <input
+                        type="time"
+                        required
+                        className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-slate-800 shadow-sm"
+                        value={appointmentTime}
+                        onChange={(e) => setAppointmentTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedFilialId || !appointmentDate || !appointmentTime || !apoderadoTelefono) {
+                        alert("Por favor, complete todos los campos de contacto, filial, fecha y hora.");
+                        return;
+                      }
+                      if (newStudentType === 'dependent' && !apoderadoNombre) {
+                        alert("Por favor, complete el nombre del apoderado.");
+                        return;
+                      }
+                      const hasEmptyStudent = newStudents.some(st => !st.nombre_completo || !st.edad);
+                      if (hasEmptyStudent) {
+                        alert("Por favor, complete los datos de todos los alumnos.");
+                        return;
+                      }
+
+                      setPendingBookingPayload({
+                        flow: 'new',
+                        newStudentType,
+                        apoderadoNombre,
+                        apoderadoTelefono,
+                        newStudents,
+                        filialId: selectedFilialId,
+                        fecha_cita: appointmentDate,
+                        hora_cita: appointmentTime
+                      });
+                      setIsConfirmingSave(true);
+                    }}
+                    className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 btn-glow cursor-pointer"
+                  >
+                    Registrar Cita
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hora</label>
-                  <input type="time" name="hora_cita" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
-                </div>
-              </div>
-              <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 btn-glow">
-                Registrar Cita en DB
-              </button>
-            </form>
+              )}
+            </div>
           ) : activeView === 'alumnos' ? (
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -3224,32 +4166,32 @@ const App: React.FC = () => {
               handleAddAlumno(Object.fromEntries(fd));
             }} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo</label>
                 <input type="text" name="nombre_completo" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Javier Estrada" />
               </div>
               {/* Tipo de alumno */}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Alumno</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Alumno</label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-100 transition-all">
                     <input type="radio" name="tipo_alumno" value="dependiente" defaultChecked className="text-blue-600" />
                     <div>
                       <p className="font-bold text-slate-800 text-sm">Dependiente</p>
-                      <p className="text-[10px] text-slate-400">Tiene apoderado</p>
+                      <p className="text-[13px] text-slate-400">Tiene apoderado</p>
                     </div>
                   </label>
                   <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-slate-200 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition-all">
                     <input type="radio" name="tipo_alumno" value="independiente" className="text-emerald-600" />
                     <div>
                       <p className="font-bold text-slate-800 text-sm">Independiente</p>
-                      <p className="text-[10px] text-slate-400">Contacto propio</p>
+                      <p className="text-[13px] text-slate-400">Contacto propio</p>
                     </div>
                   </label>
                 </div>
               </div>
               {/* Apoderado — solo si dependiente. En React puro sin state reactivo en form mostramos siempre pero con nota */}
               <div id="apoderado-section">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Apoderado <span className="text-blue-400">(solo si dependiente)</span></label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Apoderado <span className="text-blue-400">(solo si dependiente)</span></label>
                 <select name="id_apoderado" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
                   <option value="">Sin apoderado (independiente)</option>
                   {apoderados.map(ap => <option key={ap.id} value={ap.id}>{ap.nombre_completo}</option>)}
@@ -3257,11 +4199,11 @@ const App: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Edad</label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Edad</label>
                   <input type="number" name="edad" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular <span className="text-emerald-500">(si independiente)</span></label>
+                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular <span className="text-emerald-500">(si independiente)</span></label>
                   <input type="text" name="telefono" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999000888" />
                 </div>
               </div>
@@ -3276,11 +4218,11 @@ const App: React.FC = () => {
               handleAddApoderado(Object.fromEntries(fd));
             }} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo</label>
                 <input type="text" name="nombre_completo" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Juan Pérez" />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular</label>
                 <input type="text" name="telefono" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999888777" />
               </div>
               <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 btn-glow">
@@ -3295,7 +4237,7 @@ const App: React.FC = () => {
             }} className="space-y-4">
               {/* Imagen Filial */}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
                   {editingItem ? 'Imagen (opcional — reemplaza la actual)' : 'Imagen (opcional)'}
                 </label>
                 <div className="flex items-center gap-2">
@@ -3409,7 +4351,7 @@ const App: React.FC = () => {
                       onChange={(e) => setFilialScale(parseFloat(e.target.value))}
                       className="w-full accent-emerald-500"
                     />
-                    <p className="text-[10px] text-slate-400 mt-2 text-center">Arrastra la imagen en el recuadro para centrarla</p>
+                    <p className="text-[13px] text-slate-400 mt-2 text-center">Arrastra la imagen en el recuadro para centrarla</p>
                   </div>
                 </div>
               )}
@@ -3421,15 +4363,15 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Dpto.</label>
+                  <label className="block text-[13px] font-bold text-slate-400 uppercase mb-1">Dpto.</label>
                   <input type="text" name="departamento" defaultValue={editingItem?.departamento} required className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-800 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Provincia</label>
+                  <label className="block text-[13px] font-bold text-slate-400 uppercase mb-1">Provincia</label>
                   <input type="text" name="provincia" defaultValue={editingItem?.provincia} required className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-800 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Distrito</label>
+                  <label className="block text-[13px] font-bold text-slate-400 uppercase mb-1">Distrito</label>
                   <input type="text" name="distrito" defaultValue={editingItem?.distrito} required className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-800 shadow-sm" />
                 </div>
               </div>
@@ -3494,7 +4436,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 italic line-clamp-2">"{msg.contenido}"</p>
-                  <div className="text-[10px] font-bold text-slate-400 mt-1">
+                  <div className="text-[13px] font-bold text-slate-400 mt-1">
                     {filiales.filter(f => f.id_mensaje_wsp === msg.id).length} filial(es) asignada(s)
                   </div>
                 </div>
@@ -3506,22 +4448,22 @@ const App: React.FC = () => {
         <Modal isOpen={isEditMensajeOpen} onClose={() => setIsEditMensajeOpen(false)} title={editingMensaje ? "Editar Mensaje WhatsApp" : "Nuevo Mensaje WhatsApp"}>
           <form onSubmit={handleSaveMensaje} className="space-y-5">
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Título / Indicador</label>
+              <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Título / Indicador</label>
               <input type="text" name="titulo" defaultValue={editingMensaje?.titulo} required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Promoción Chiclayo" />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Contenido del Mensaje</label>
+              <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Contenido del Mensaje</label>
               <textarea name="contenido" defaultValue={editingMensaje?.contenido} required rows={3} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm text-sm" placeholder="Hola, deseo información sobre..." />
             </div>
             
             <div>
               <div className="flex justify-between items-end mb-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Asignar Filiales</label>
+                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest">Asignar Filiales</label>
                 {availableFiliales.length > 0 && (
-                  <button type="button" onClick={selectAllFilialesMensaje} className="text-[10px] font-bold text-emerald-600 hover:underline">Seleccionar Todas</button>
+                  <button type="button" onClick={selectAllFilialesMensaje} className="text-[13px] font-bold text-emerald-600 hover:underline">Seleccionar Todas</button>
                 )}
                 {selectedFiliales.length > 0 && availableFiliales.length === 0 && (
-                  <button type="button" onClick={deselectAllFilialesMensaje} className="text-[10px] font-bold text-rose-500 hover:underline">Quitar Todas</button>
+                  <button type="button" onClick={deselectAllFilialesMensaje} className="text-[13px] font-bold text-rose-500 hover:underline">Quitar Todas</button>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4 h-[250px]">
@@ -3531,7 +4473,7 @@ const App: React.FC = () => {
                   onDragOver={onDragOverMensaje}
                   onDrop={(e) => onDropMensaje(e, 'available')}
                 >
-                  <p className="text-[10px] font-bold text-slate-400 text-center uppercase mb-2 sticky top-0 bg-slate-50 py-1">Disponibles</p>
+                  <p className="text-[13px] font-bold text-slate-400 text-center uppercase mb-2 sticky top-0 bg-slate-50 py-1">Disponibles</p>
                   <div className="space-y-2">
                     {availableFiliales.map(f => (
                       <div 
@@ -3547,7 +4489,7 @@ const App: React.FC = () => {
                       </div>
                     ))}
                     {availableFiliales.length === 0 && (
-                      <p className="text-[10px] text-slate-400 text-center py-4 italic">No hay filiales libres</p>
+                      <p className="text-[13px] text-slate-400 text-center py-4 italic">No hay filiales libres</p>
                     )}
                   </div>
                 </div>
@@ -3558,7 +4500,7 @@ const App: React.FC = () => {
                   onDragOver={onDragOverMensaje}
                   onDrop={(e) => onDropMensaje(e, 'selected')}
                 >
-                  <p className="text-[10px] font-bold text-emerald-600 text-center uppercase mb-2 sticky top-0 bg-emerald-50/90 py-1">Asignadas</p>
+                  <p className="text-[13px] font-bold text-emerald-600 text-center uppercase mb-2 sticky top-0 bg-emerald-50/90 py-1">Asignadas</p>
                   <div className="space-y-2">
                     {selectedFiliales.map(f => (
                       <div 
@@ -3574,12 +4516,12 @@ const App: React.FC = () => {
                       </div>
                     ))}
                     {selectedFiliales.length === 0 && (
-                      <p className="text-[10px] text-emerald-600/70 text-center py-4 italic">Arrastra filiales aquí</p>
+                      <p className="text-[13px] text-emerald-600/70 text-center py-4 italic">Arrastra filiales aquí</p>
                     )}
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] text-slate-400 mt-2 text-center">Arrastra las filiales de un lado a otro para asignarlas.</p>
+              <p className="text-[13px] text-slate-400 mt-2 text-center">Arrastra las filiales de un lado a otro para asignarlas.</p>
             </div>
 
             <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs btn-glow mt-2">

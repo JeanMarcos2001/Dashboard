@@ -1,8 +1,9 @@
 
 export enum AppointmentStatus {
-  PENDING = 'PENDIENTE',
-  VERIFIED = 'VERIFICADO',
-  CANCELLED = 'CANCELADO'
+  PENDING = 'AGENDADO',
+  VERIFIED = 'CONFIRMADO',
+  CANCELLED = 'CANCELADO',
+  CONVERTED = 'CONVERTIDO'
 }
 
 export interface Apoderado {
@@ -10,6 +11,7 @@ export interface Apoderado {
   nombre_completo: string;
   telefono: string;
   created_at: string;
+  creado_en?: string | null;
 }
 
 export interface Alumno {
@@ -19,6 +21,7 @@ export interface Alumno {
   telefono: string;
   id_apoderado: number;
   created_at: string;
+  creado_en?: string | null;
 }
 
 export interface Filial {
