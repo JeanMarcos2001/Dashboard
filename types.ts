@@ -21,6 +21,7 @@ export interface Apoderado {
   id: number;
   nombre_completo: string;
   telefono: string;
+  email?: string | null;
   created_at: string;
   creado_en?: string | null;
 }
@@ -30,6 +31,7 @@ export interface Alumno {
   nombre_completo: string;
   edad: number;
   telefono: string;
+  email?: string | null;
   id_apoderado: number;
   created_at: string;
   creado_en?: string | null;
@@ -83,3 +85,38 @@ export interface Stats {
   pendingCount: number;
   conversionRate: number;
 }
+
+export interface ColorCorporativo {
+  id: number;
+  nombre: string;
+  clase_css: string;
+  hex: string;
+  activo: boolean;
+}
+
+export interface Historia {
+  id: number;
+  nombre_alumno: string;
+  programa: string;
+  narracion: string;
+  palabras_por_min: string;
+  foto_path: string | null;
+  foto_position: string | null;
+  foto_scale: number | null;
+  id_color: number | null;
+  activo: boolean;
+  orden: number;
+  created_at: string;
+}
+
+export interface Carrusel02Imagen {
+  id: number;
+  nombre: string;
+  file_path: string;
+  orden: number;
+  activo: boolean;
+  foto_position: string | null;
+  foto_scale: number | null;
+  created_at: string;
+}
+
