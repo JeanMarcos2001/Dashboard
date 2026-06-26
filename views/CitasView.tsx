@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Plus, Filter, ChevronLeft, ChevronRight, X, Clock, MoreVertical,
+  Plus, Filter, ChevronLeft, ChevronRight, X, Clock,
   MapPin, Eye, Sparkles, Calendar, GraduationCap, Search, Trash2,
   User, Phone, MessageCircle, XCircle, CalendarDays, TrendingUp,
   CalendarClock, FileText, Save, Info, Mail
@@ -218,6 +218,16 @@ export const CitasView: React.FC<CitasViewProps> = ({
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  React.useEffect(() => {
+    const handleOutsideClick = () => {
+      if (plusMenuDate) {
+        setPlusMenuDate(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [plusMenuDate, setPlusMenuDate]);
   // Ref para swipe horizontal en móvil
   const touchStartX = React.useRef<number | null>(null);
   // Estado de navegación de 2 días para móvil (independiente del semanal de desktop)
@@ -735,7 +745,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
           >
             <ChevronLeft size={19} className="rotate-180" />
           </button>
-          <span className="flex-1 text-center font-bold text-slate-700 text-sm md:text-base tracking-tight select-none">
+          <span className="flex-1 text-center font-semibold text-slate-700 text-sm md:text-base tracking-tight select-none">
             {rangeLabel}
           </span>
           <button
@@ -778,7 +788,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 <div key={day.getTime()} className="flex flex-col">
                   {/* Encabezado del dia */}
                   <div className={`relative text-center px-2 py-3 rounded-2xl mb-2 transition-all ${isToday
-                    ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 text-white'
+                    ? 'bg-emerald-600 shadow-lg shadow-emerald-500/20 text-white'
                     : 'bg-white border border-slate-200'
                     }`}>
                     {/* Botón "+" para crear cita rápida */}
@@ -866,25 +876,22 @@ export const CitasView: React.FC<CitasViewProps> = ({
                           >
                             <div className="flex items-center justify-between w-full gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase border shadow-sm ${s.bg} ${s.text} ${s.border}`}>
+                                <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase border shadow-sm ${s.bg} ${s.text} ${s.border}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${s.dot} flex-shrink-0`} />
                                   {app.estado}
                                 </div>
-                                <span className="text-xs font-bold uppercase px-2.5 py-0.5 rounded-full border border-slate-200/50 bg-slate-100 text-slate-600">
+                                <span className="text-[11px] font-bold uppercase px-2.5 py-0.5 rounded-full border border-slate-200/50 bg-slate-100 text-slate-600">
                                   {typeLabel}
                                 </span>
                                 {isNew && (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase border border-amber-200 bg-amber-50 text-amber-600">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase border border-amber-200 bg-amber-50 text-amber-600">
                                     Nuevo
                                   </span>
                                 )}
                               </div>
-                              <div className="text-slate-400 flex-shrink-0 hover:text-slate-600 transition-colors p-0.5">
-                                <MoreVertical size={14} />
-                              </div>
                             </div>
 
-                            <h4 className="text-[15.5px] font-bold text-slate-800 truncate w-full mt-3">
+                            <h4 className="text-[14.5px] font-bold text-slate-800 truncate w-full mt-3">
                               {app.alumno_nombre}
                             </h4>
 

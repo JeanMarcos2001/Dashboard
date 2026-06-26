@@ -19,7 +19,6 @@ import {
   Edit,
   Power,
   Navigation,
-  Loader2,
   RefreshCw,
   GraduationCap,
   CalendarClock,
@@ -50,6 +49,7 @@ import {
 } from './types';
 import { ConfirmAlert } from './components/ConfirmAlert';
 import { Modal } from './components/Modal';
+import Loader from './components/Loader';
 import { isAlumnoExistenteCita } from './utils/appointments';
 import { convertToWebPBlob } from './utils/imageProcessing';
 import { DashboardView } from './views/DashboardView';
@@ -344,9 +344,9 @@ const App: React.FC = () => {
     }
   };
 
-  // Estadísticas globales
+  // Estadísticas globales (solo de Entrevistas, excluyendo Citas)
   const stats = useMemo((): Stats => {
-    const total = appointments.length;
+    const total = appointments.filter(a => !isAlumnoExistenteCita(a)).length;
     const verified = appointments.filter(a => !isAlumnoExistenteCita(a) && a.estado === AppointmentStatus.CONFIRMADO).length;
     const pending = appointments.filter(a => !isAlumnoExistenteCita(a) && (a.estado === AppointmentStatus.PENDIENTE || a.estado === AppointmentStatus.AGENDADO)).length;
     const converted = appointments.filter(a => !isAlumnoExistenteCita(a) && a.estado === AppointmentStatus.CONVERTIDO).length;
@@ -1443,8 +1443,7 @@ const App: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc]">
-        <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mb-4" />
-        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-sm">Sincronizando con Supabase...</p>
+        <Loader />
       </div>
     );
   }
