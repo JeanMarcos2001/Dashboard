@@ -264,7 +264,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-20">
             {/* Filtro de Fecha */}
             <div className="space-y-2">
-              <label className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Fecha</label>
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Fecha</label>
               <select
                 value={filterDateMode}
                 onChange={(e) => setFilterDateMode(e.target.value as any)}
@@ -306,7 +306,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
             {/* Filtro de Filiales (Multi-select) */}
             <div className="space-y-2 relative">
-              <label className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Filiales</label>
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Filiales</label>
               <button
                 onClick={() => setIsFilialDropdownOpen(!isFilialDropdownOpen)}
                 className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-left flex justify-between items-center hover:border-emerald-300 transition-all text-sm font-bold text-slate-700"
@@ -351,7 +351,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
             {/* Filtro de Estado */}
             <div className="space-y-2">
-              <label className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Estado</label>
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Estado</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as any)}
@@ -444,7 +444,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
           >
             <ChevronLeft size={18} />
           </button>
-          <span className="text-base font-black text-slate-700 uppercase tracking-wider">{monthLabel}</span>
+          <span className="text-sm font-semibold text-slate-700 uppercase tracking-wider">{monthLabel}</span>
           <button
             type="button"
             onClick={handleNextMonth}
@@ -454,7 +454,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
+        <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
           <span>Lu</span>
           <span>Ma</span>
           <span>Mi</span>
@@ -510,7 +510,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
   const renderHorizontalHourRibbon = () => {
     if (!appointmentDate) {
       return (
-        <div className="text-center text-slate-400 py-6 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider">
+        <div className="text-center text-slate-400 py-6 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 text-xs font-bold uppercase tracking-wider">
           Seleccione un día en el calendario
         </div>
       );
@@ -533,7 +533,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
     return (
       <div className="space-y-2 mt-1 select-none">
-        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest">
+        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Horas disponibles para el {friendlyDateStr}
         </label>
         {availableHours.length === 0 ? (
@@ -564,8 +564,8 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     key={h}
                     type="button"
                     onClick={() => setAppointmentTime(h)}
-                    className={`flex-shrink-0 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border shadow-sm cursor-pointer hover:scale-105 ${isSelected
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-md shadow-indigo-100 scale-105'
+                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all border shadow-sm cursor-pointer hover:scale-105 ${isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm scale-105'
                       : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200 hover:border-slate-300'
                       }`}
                   >
@@ -740,7 +740,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
           </span>
           <button
             onClick={() => isMobile ? goToTodayMobile() : goToToday()}
-            className="px-4 py-2.5 md:px-5 md:py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-black text-sm md:text-base hover:bg-emerald-100 active:bg-emerald-200 transition-all flex-shrink-0"
+            className="px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-xs uppercase tracking-wider hover:bg-emerald-100 active:bg-emerald-200 transition-all flex-shrink-0"
           >
             Hoy
           </button>
@@ -788,7 +788,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                         e.stopPropagation();
                         setPlusMenuDate(plusMenuDate === dateStr ? null : dateStr);
                       }}
-                      className={`absolute top-1.5 right-1.5 w-7 h-7 md:w-6 md:h-6 flex items-center justify-center rounded-full text-xs font-black transition-all cursor-pointer shadow-sm ${isToday
+                      className={`absolute top-1.5 right-1.5 w-7 h-7 md:w-6 md:h-6 flex items-center justify-center rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm ${isToday
                         ? 'bg-white/20 hover:bg-white/40 text-white hover:scale-110'
                         : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-emerald-600 border border-slate-200/50 hover:scale-110'
                         }`}
@@ -825,11 +825,11 @@ export const CitasView: React.FC<CitasViewProps> = ({
                       </div>
                     )}
 
-                    <p className={`text-3xl font-black leading-none ${isToday ? 'text-white' : 'text-slate-800'
+                    <p className={`text-2xl font-bold leading-none ${isToday ? 'text-white' : 'text-slate-800'
                       }`}>
                       {day.getDate()}
                     </p>
-                    <p className={`text-[13px] font-black uppercase tracking-widest mt-1 ${isToday ? 'text-emerald-100' : 'text-slate-400'
+                    <p className={`text-[11px] font-semibold uppercase tracking-wider mt-1 ${isToday ? 'text-emerald-100' : 'text-slate-400'
                       }`}>
                       {DAY_NAMES[day.getDay()]}
                     </p>
@@ -866,15 +866,15 @@ export const CitasView: React.FC<CitasViewProps> = ({
                           >
                             <div className="flex items-center justify-between w-full gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11.5px] font-bold uppercase border shadow-sm ${s.bg} ${s.text} ${s.border}`}>
+                                <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase border shadow-sm ${s.bg} ${s.text} ${s.border}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${s.dot} flex-shrink-0`} />
                                   {app.estado}
                                 </div>
-                                <span className="text-[11.5px] font-bold uppercase px-2.5 py-0.5 rounded-full border border-slate-200/50 bg-slate-100 text-slate-600">
+                                <span className="text-xs font-bold uppercase px-2.5 py-0.5 rounded-full border border-slate-200/50 bg-slate-100 text-slate-600">
                                   {typeLabel}
                                 </span>
                                 {isNew && (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold uppercase border border-amber-200 bg-amber-50 text-amber-600">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase border border-amber-200 bg-amber-50 text-amber-600">
                                     Nuevo
                                   </span>
                                 )}
@@ -924,7 +924,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 <div className="w-10 h-1 bg-slate-300 rounded-full" />
               </div>
               <div className="px-5 pb-2 pt-1">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 text-center">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-4 text-center">
                   {plusMenuDate ? formatFriendlyDate(plusMenuDate) : ''}
                 </p>
                 <button
@@ -933,13 +933,13 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     setPlusMenuDate(null);
                     handleCreateAppointmentForDate(plusMenuDate!, 'existing');
                   }}
-                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 active:bg-emerald-200 transition-all mb-3"
+                  className="w-full flex items-center gap-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 active:bg-emerald-200 transition-all mb-3"
                 >
-                  <div className="w-11 h-11 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
-                    <Calendar size={20} className="text-white" />
+                  <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <Calendar size={18} className="text-white" />
                   </div>
                   <div className="text-left">
-                    <p className="font-black text-slate-800 text-base">Agendar Cita</p>
+                    <p className="font-bold text-slate-800 text-sm">Agendar Cita</p>
                     <p className="text-xs text-slate-500 font-medium">Para alumno existente</p>
                   </div>
                 </button>
@@ -949,20 +949,20 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     setPlusMenuDate(null);
                     handleCreateAppointmentForDate(plusMenuDate!, 'new');
                   }}
-                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 active:bg-indigo-200 transition-all mb-5"
+                  className="w-full flex items-center gap-4 p-3 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 active:bg-indigo-200 transition-all mb-5"
                 >
-                  <div className="w-11 h-11 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0">
-                    <GraduationCap size={20} className="text-white" />
+                  <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                    <GraduationCap size={18} className="text-white" />
                   </div>
                   <div className="text-left">
-                    <p className="font-black text-slate-800 text-base">Agendar Entrevista</p>
+                    <p className="font-bold text-slate-800 text-sm">Agendar Entrevista</p>
                     <p className="text-xs text-slate-500 font-medium">Nuevo prospecto / matrícula</p>
                   </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setPlusMenuDate(null)}
-                  className="w-full py-3.5 rounded-2xl bg-slate-100 text-slate-600 font-black text-sm active:bg-slate-200 transition-all mb-2"
+                  className="w-full py-3 rounded-xl bg-slate-100 text-slate-600 font-semibold text-xs uppercase tracking-wider active:bg-slate-200 transition-all mb-2"
                 >
                   Cancelar
                 </button>
@@ -1071,7 +1071,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm mb-1">
                     <MapPin size={24} />
                   </div>
-                  <h3 className="text-xl font-black text-slate-800 leading-tight">{detailsAppointment.filial_nombre}</h3>
+                  <h3 className="text-lg font-bold text-slate-800 leading-tight">{detailsAppointment.filial_nombre}</h3>
                   <StatusBadge status={detailsAppointment.estado} />
                 </div>
               </div>
@@ -1086,22 +1086,22 @@ export const CitasView: React.FC<CitasViewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-2 mb-3 text-slate-400 font-black text-[13px] uppercase tracking-widest">
+                    <div className="flex items-center gap-2 mb-3 text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
                       <User size={14} /> Datos del Alumno
                     </div>
                     <p className="text-xl font-bold text-slate-800">{detailsAppointment.alumno_nombre}</p>
                     <div className="mt-3 space-y-2 text-xs font-bold text-slate-500">
-                      <p>• Edad: <span className="font-extrabold text-slate-700">{alumnoDetalle ? `${alumnoDetalle.edad} años` : 'No especificada'}</span></p>
-                      <p>• ID Alumno: <span className="font-extrabold text-slate-700">{detailsAppointment.id_alumno}</span></p>
+                      <p>• Edad: <span className="font-bold text-slate-700">{alumnoDetalle ? `${alumnoDetalle.edad} años` : 'No especificada'}</span></p>
+                      <p>• ID Alumno: <span className="font-bold text-slate-700">{detailsAppointment.id_alumno}</span></p>
                     </div>
                   </div>
                   <div className="mt-4">
                     {isIndependiente ? (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
                         Alumno Independiente
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
                         Con Apoderado
                       </span>
                     )}
@@ -1111,7 +1111,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 <div className={`p-5 rounded-3xl border flex flex-col justify-between ${isIndependiente ? 'bg-emerald-50/40 border-emerald-100' : 'bg-blue-50/40 border-blue-100'
                   }`}>
                   <div>
-                    <div className={`flex items-center gap-2 mb-3 font-black text-[13px] uppercase tracking-widest ${isIndependiente ? 'text-emerald-500' : 'text-blue-500'
+                    <div className={`flex items-center gap-2 mb-3 font-semibold text-[11px] uppercase tracking-wider ${isIndependiente ? 'text-emerald-500' : 'text-blue-500'
                       }`}>
                       <Phone size={14} /> Datos de Contacto
                     </div>
@@ -1121,7 +1121,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     <p className="text-[13px] text-slate-400 font-bold uppercase mt-1">
                       {isIndependiente ? 'Contacto Directo (Alumno)' : 'Contacto Apoderado'}
                     </p>
-                    <div className="mt-4 flex items-center gap-2 text-xl font-black text-slate-700">
+                    <div className="mt-4 flex items-center gap-2 text-lg font-bold text-slate-700">
                       <Phone size={18} className={isIndependiente ? 'text-emerald-500' : 'text-blue-500'} />
                       {isIndependiente ? (alumnoDetalle?.telefono || 'Sin teléfono') : (apoderadoDetalle?.telefono || 'Sin teléfono')}
                     </div>
@@ -1140,7 +1140,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                         href={`https://api.whatsapp.com/send?phone=${cleanPhoneNumberForWhatsapp(isIndependiente ? alumnoDetalle?.telefono : apoderadoDetalle?.telefono)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white flex items-center justify-center gap-2 shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]
+                        className={`w-full py-2.5 px-4 rounded-xl font-semibold text-xs uppercase tracking-wider text-white flex items-center justify-center gap-2 shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]
                         ${isIndependiente
                             ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200/50'
                             : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200/50'
@@ -1151,7 +1151,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     ) : (
                       <button
                         disabled
-                        className="w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs uppercase tracking-wider text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         <XCircle size={16} /> Sin número registrado
                       </button>
@@ -1164,7 +1164,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
               <div className="flex flex-col items-center justify-center py-4 border-y border-dashed border-slate-200">
                 <div className="flex items-center gap-3 text-slate-800">
                   <CalendarDays size={24} className="text-emerald-600" />
-                  <span className="text-2xl font-black capitalize">{formatFriendlyDate(detailsAppointment.fecha_cita)}</span>
+                  <span className="text-xl font-bold capitalize">{formatFriendlyDate(detailsAppointment.fecha_cita)}</span>
                 </div>
                 <div className="mt-2 px-4 py-1 bg-slate-800 text-white rounded-full font-bold text-lg shadow-lg shadow-slate-200 uppercase tracking-widest">
                   {(() => {
@@ -1190,7 +1190,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
               {/* Gestión del Estado */}
               <div className="space-y-4">
-                <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <TrendingUp size={16} className="text-emerald-600" /> Gestión de Estado
                 </h4>
                 <div className="flex items-center justify-between gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -1268,7 +1268,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
               {/* Observaciones / Notas */}
               <div className="space-y-4">
-                <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <FileText size={16} className="text-emerald-600" /> Observaciones / Notas
                 </h4>
                 <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
@@ -1281,7 +1281,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   <div className="flex justify-end">
                     <button
                       onClick={handleUpdateNotes}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-100 hover:shadow-lg transition-all flex items-center gap-2"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs shadow-md shadow-emerald-100/50 transition-all flex items-center gap-2"
                     >
                       <Save size={14} /> Actualizar Notas
                     </button>
@@ -1311,7 +1311,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                           <span className="font-bold text-slate-800 text-sm">{monthNames[currentCalendarDate.getMonth()]} {currentCalendarDate.getFullYear()}</span>
                           <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))} className="p-1 hover:bg-white rounded-lg"><ChevronLeft size={16} className="rotate-180" /></button>
                         </div>
-                        <div className="grid grid-cols-7 gap-1 text-[13px] text-center font-black text-slate-400 uppercase mb-1">
+                        <div className="grid grid-cols-7 gap-1 text-xs text-center font-semibold text-slate-400 uppercase mb-1">
                           <div>D</div><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div>
                         </div>
                         <div className="grid grid-cols-7 gap-1 place-items-center">
@@ -1344,7 +1344,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                       <button
                         onClick={handleReprogramFromModal}
                         disabled={!selectedDate || !selectedTime}
-                        className="px-6 py-2 bg-emerald-600 text-white font-black rounded-xl text-sm shadow-lg shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                        className="px-5 py-2 bg-emerald-600 text-white font-semibold rounded-xl text-xs uppercase tracking-wider hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-100/50"
                       >
                         <Save size={16} /> Guardar Cambios
                       </button>
@@ -1374,7 +1374,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
             <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1 w-full md:w-auto">
               <button
                 onClick={() => setCitasView('calendar')}
-                className={`px-4 py-2 rounded-lg text-sm font-black transition-all flex-1 md:flex-none ${citasView === 'calendar'
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex-1 md:flex-none ${citasView === 'calendar'
                   ? 'bg-white text-slate-800 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
                   }`}
@@ -1383,7 +1383,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
               </button>
               <button
                 onClick={() => setCitasView('list')}
-                className={`px-4 py-2 rounded-lg text-sm font-black transition-all flex-1 md:flex-none ${citasView === 'list'
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex-1 md:flex-none ${citasView === 'list'
                   ? 'bg-white text-slate-800 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
                   }`}
@@ -1399,7 +1399,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   setSchedulingFlow('existing');
                   setIsModalOpen(true);
                 }}
-                className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-all shadow-md cursor-pointer w-full md:w-auto"
+                className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50 cursor-pointer w-full md:w-auto"
               >
                 <Plus size={16} /> Agendar Cita
               </button>
@@ -1409,7 +1409,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   setSchedulingFlow('new');
                   setIsModalOpen(true);
                 }}
-                className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center justify-center gap-1.5 hover:bg-indigo-700 transition-all shadow-md cursor-pointer w-full md:w-auto"
+                className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100/50 cursor-pointer w-full md:w-auto"
               >
                 <Plus size={16} /> Agendar Entrevista
               </button>
@@ -1429,7 +1429,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 text-slate-500 text-[13px] font-black uppercase tracking-widest border-b border-slate-100">
+                <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-100">
                   <tr>
                     <th className="px-6 py-4 text-left">Alumno</th>
                     <th className="px-6 py-4 text-left">Filial</th>
@@ -1454,41 +1454,41 @@ export const CitasView: React.FC<CitasViewProps> = ({
                       <tr key={app.id} className={rowClass}>
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <p className="font-black text-slate-800 leading-none text-[15px]">{app.alumno_nombre}</p>
+                            <p className="font-normal text-slate-800 leading-none text-[14px]">{app.alumno_nombre}</p>
                             {isNew && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm shadow-amber-200 animate-pulse">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500 text-white shadow-sm shadow-amber-200 animate-pulse">
                                 <Sparkles size={9} /> Nuevo
                               </span>
                             )}
                             {isExistente ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-emerald-100/80 text-emerald-800 border border-emerald-200/50 shadow-sm">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-100/80 text-emerald-800 border border-emerald-200/50 shadow-sm">
                                 Cita
                               </span>
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-indigo-100/80 text-indigo-800 border border-indigo-200/50 shadow-sm">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-100/80 text-indigo-800 border border-indigo-200/50 shadow-sm">
                                 Entrevista
                               </span>
                             )}
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">
                               {isInd ? 'Indep.' : 'Apod.'}
                             </span>
                           </div>
-                          <p className="text-[13px] text-slate-400 font-bold mt-1.5 uppercase">ID: {app.id_alumno}</p>
+                          <p className="text-[12px] text-slate-400 font-normal mt-1.5 uppercase">ID: {app.id_alumno}</p>
                         </td>
                         <td className="px-6 py-5">
-                          <div className="flex items-center gap-2 text-slate-600 font-bold text-sm">
+                          <div className="flex items-center gap-2 text-slate-600 font-normal text-sm">
                             <MapPin size={14} className={isExistente ? 'text-emerald-500' : 'text-indigo-500'} />
                             {app.filial_nombre}
                           </div>
                         </td>
                         <td className="px-6 py-5">
-                          <div className="text-sm font-black text-slate-700 capitalize">{formatFriendlyDate(app.fecha_cita)}</div>
-                          <div className={`text-[14px] font-black inline-block px-1.5 rounded mt-1 shadow-sm border ${isExistente
+                          <div className="text-sm font-normal text-slate-700 capitalize">{formatFriendlyDate(app.fecha_cita)}</div>
+                          <div className={`text-xs font-medium inline-block px-1.5 py-0.5 rounded mt-1 shadow-sm border ${isExistente
                             ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
                             : 'text-indigo-600 bg-indigo-50 border-indigo-100'
                             }`}>{app.hora_cita}</div>
                         </td>
-                        <td className="px-6 py-5 text-[13px] text-slate-500 font-bold">
+                        <td className="px-6 py-5 text-[13px] text-slate-500 font-normal">
                           {app.creado_en ? new Date(app.creado_en).toLocaleString('es-PE') : '—'}
                         </td>
                         <td className="px-6 py-5">
@@ -1499,9 +1499,9 @@ export const CitasView: React.FC<CitasViewProps> = ({
                         <td className="px-6 py-5 text-right">
                           <button
                             onClick={() => openAppointmentDetails(app)}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 ml-auto transition-all border cursor-pointer ${isExistente
-                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-150'
-                              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-150'
+                            className={`px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-2 ml-auto transition-all border cursor-pointer ${isExistente
+                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-150 shadow-sm shadow-emerald-55/50'
+                              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-150 shadow-sm shadow-indigo-55/50'
                               }`}
                           >
                             <Eye size={16} /> Ver Cita
@@ -1548,16 +1548,16 @@ export const CitasView: React.FC<CitasViewProps> = ({
             <div className="divide-y divide-slate-100 space-y-4">
               {/* Detalles de la cita */}
               <div className="space-y-2">
-                <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Detalles de la Cita</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <p className="text-slate-500 font-bold">Filial/Sede:</p>
-                  <p className="text-slate-800 font-black">
+                <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Detalles de la Cita</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p className="text-slate-500 font-semibold">Filial/Sede:</p>
+                  <p className="text-slate-800 font-bold">
                     {filiales.find(f => f.id === pendingBookingPayload.filialId)?.nombre || '—'}
                   </p>
-                  <p className="text-slate-500 font-bold">Fecha programada:</p>
-                  <p className="text-slate-800 font-black">{formatFriendlyDate(pendingBookingPayload.fecha_cita)}</p>
-                  <p className="text-slate-500 font-bold">Hora agendada:</p>
-                  <p className="text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 inline-block w-fit text-xs">
+                  <p className="text-slate-500 font-semibold">Fecha programada:</p>
+                  <p className="text-slate-800 font-bold">{formatFriendlyDate(pendingBookingPayload.fecha_cita)}</p>
+                  <p className="text-slate-500 font-semibold">Hora agendada:</p>
+                  <p className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 inline-block w-fit text-xs">
                     {pendingBookingPayload.hora_cita}
                   </p>
                 </div>
@@ -1565,46 +1565,46 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
               {/* Detalles de personas */}
               <div className="pt-4 space-y-2">
-                <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Alumnos y Contacto</h4>
-                <div className="text-sm space-y-2">
+                <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Alumnos y Contacto</h4>
+                <div className="text-xs space-y-2">
                   {pendingBookingPayload.flow === 'existing' ? (
                     <div className="grid grid-cols-2 gap-2">
-                      <p className="text-slate-500 font-bold">Tipo:</p>
-                      <p className="text-blue-600 font-black">Cita (Alumno Existente)</p>
-                      <p className="text-slate-500 font-bold">Alumno:</p>
-                      <p className="text-slate-800 font-black">
+                      <p className="text-slate-500 font-semibold">Tipo:</p>
+                      <p className="text-blue-600 font-bold">Cita (Alumno Existente)</p>
+                      <p className="text-slate-500 font-semibold">Alumno:</p>
+                      <p className="text-slate-800 font-bold">
                         {alumnos.find(al => al.id === pendingBookingPayload.alumnoId)?.nombre_completo || '—'}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2">
-                        <p className="text-slate-500 font-bold">Tipo:</p>
-                        <p className="text-emerald-600 font-black font-extrabold">Entrevista (Matrícula Nueva)</p>
+                        <p className="text-slate-500 font-semibold">Tipo:</p>
+                        <p className="text-emerald-600 font-bold">Entrevista (Matrícula Nueva)</p>
 
-                        <p className="text-slate-500 font-bold">Tipo:</p>
-                        <p className="text-slate-800 font-black capitalize">
+                        <p className="text-slate-500 font-semibold">Tipo:</p>
+                        <p className="text-slate-800 font-bold capitalize">
                           {pendingBookingPayload.newStudentType === 'independent' ? 'Independiente' : 'Con Apoderado'}
                         </p>
 
                         {pendingBookingPayload.newStudentType === 'dependent' && (
                           <>
-                            <p className="text-slate-500 font-bold">Apoderado:</p>
-                            <p className="text-slate-800 font-black">{pendingBookingPayload.apoderadoNombre}</p>
+                            <p className="text-slate-500 font-semibold">Apoderado:</p>
+                            <p className="text-slate-800 font-bold">{pendingBookingPayload.apoderadoNombre}</p>
                           </>
                         )}
 
-                        <p className="text-slate-500 font-bold">Teléfono/Celular:</p>
-                        <p className="text-slate-800 font-black">{pendingBookingPayload.apoderadoTelefono}</p>
+                        <p className="text-slate-500 font-semibold">Teléfono/Celular:</p>
+                        <p className="text-slate-800 font-bold">{pendingBookingPayload.apoderadoTelefono}</p>
                         {pendingBookingPayload.apoderadoEmail && (
                           <>
                             <p className="text-slate-500 font-bold">Correo:</p>
-                            <p className="text-slate-800 font-black">{pendingBookingPayload.apoderadoEmail}</p>
+                            <p className="text-slate-800 font-semibold">{pendingBookingPayload.apoderadoEmail}</p>
                           </>
                         )}
                       </div>
                       <div className="border-t border-slate-100 pt-2.5">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase mb-2">Hijos/Alumnos a registrar:</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Hijos/Alumnos a registrar:</p>
                         <div className="space-y-1.5">
                           {pendingBookingPayload.newStudents.map((st: any, idx: number) => (
                             <div key={idx} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-700">
@@ -1622,7 +1622,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
               {/* Observaciones */}
               {pendingBookingPayload.observaciones && (
                 <div className="pt-4 space-y-2">
-                  <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Observaciones / Notas</h4>
+                  <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Observaciones / Notas</h4>
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-slate-600 italic">
                     "{pendingBookingPayload.observaciones}"
                   </div>
@@ -1634,14 +1634,14 @@ export const CitasView: React.FC<CitasViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsConfirmingSave(false)}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-colors"
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all"
               >
                 Seguir Editando
               </button>
               <button
                 type="button"
                 onClick={() => handleAddAppointment(pendingBookingPayload)}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-100"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-100/50"
               >
                 Confirmar y Guardar
               </button>
@@ -1653,7 +1653,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
               /* Flow A: Alumno Existente */
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Sede / Filial</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Sede / Filial</label>
                   <select
                     value={selectedFilialId || ''}
                     onChange={(e) => {
@@ -1672,7 +1672,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   <div className="space-y-4 animate-in fade-in duration-200">
                     {/* Buscador predictivo */}
                     <div className="relative">
-                      <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Buscar Alumno</label>
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Buscar Alumno</label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
@@ -1705,7 +1705,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                                 className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-sm text-slate-700 transition-colors flex items-center justify-between"
                               >
                                 <span>{al.nombre_completo}</span>
-                                <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">
+                                <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
                                   {al.id_apoderado ? 'Con Apoderado' : 'Independiente'}
                                 </span>
                               </button>
@@ -1723,19 +1723,18 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     {selectedAlumnoId && (
                       <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 shadow-inner space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Tipo de Alumno:</span>
+                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Tipo de Alumno:</span>
                           {(() => {
                             const al = alumnos.find(a => a.id === selectedAlumnoId);
-                            const apo = al && al.id_apoderado ? apoderados.find(ap => ap.id === al.id_apoderado) : null;
                             const isInd = al ? !al.id_apoderado : true;
                             return (
                               <>
                                 {isInd ? (
-                                  <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase tracking-wider">
                                     Independiente
                                   </span>
                                 ) : (
-                                  <span className="text-xs font-black text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                                  <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded uppercase tracking-wider">
                                     Con Apoderado
                                   </span>
                                 )}
@@ -1749,8 +1748,8 @@ export const CitasView: React.FC<CitasViewProps> = ({
                           if (apo) {
                             return (
                               <div className="text-xs font-bold text-slate-600 space-y-1">
-                                <p>• Apoderado: <span className="font-extrabold text-slate-700">{apo.nombre_completo}</span></p>
-                                <p>• Teléfono Apoderado: <span className="font-extrabold text-slate-700">{apo.telefono}</span></p>
+                                <p>• Apoderado: <span className="font-bold text-slate-700">{apo.nombre_completo}</span></p>
+                                <p>• Teléfono Apoderado: <span className="font-bold text-slate-700">{apo.telefono}</span></p>
                               </div>
                             );
                           }
@@ -1763,7 +1762,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     <div className={preselectedDate ? "grid grid-cols-1" : "grid grid-cols-2 gap-4"}>
                       {!preselectedDate && (
                         <div>
-                          <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha</label>
+                          <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Fecha</label>
                           <input
                             type="date"
                             required
@@ -1774,7 +1773,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                         </div>
                       )}
                       <div>
-                        <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hora</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Hora</label>
                         <select
                           required
                           className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
@@ -1793,7 +1792,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
                     {/* Observaciones */}
                     <div>
-                      <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Observaciones / Notas</label>
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Observaciones / Notas</label>
                       <textarea
                         placeholder="Ingrese observaciones o anotaciones sobre la cita (ej. dificultad del alumno, comentarios)..."
                         rows={3}
@@ -1820,7 +1819,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                         });
                         setIsConfirmingSave(true);
                       }}
-                      className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-md hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 cursor-pointer"
+                      className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs shadow-md shadow-emerald-100/50 mt-4 cursor-pointer"
                     >
                       Agendar Cita
                     </button>
@@ -1838,7 +1837,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 <div className="space-y-4">
                   {/* Tipo de alumno nuevo */}
                   <div>
-                    <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Alumno Nuevo</label>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Tipo de Alumno Nuevo</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -1887,10 +1886,10 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   {/* Datos del Apoderado - sólo si es Dependiente */}
                   {newStudentType === 'dependent' ? (
                     <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3 shadow-inner">
-                      <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200/50 pb-1.5">Datos del Apoderado (Contacto Principal)</h4>
+                      <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-200/50 pb-1.5">Datos del Apoderado (Contacto Principal)</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre Completo</label>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre Completo</label>
                           <input
                             type="text"
                             required
@@ -1901,7 +1900,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Celular de Contacto</label>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Celular de Contacto</label>
                           <input
                             type="text"
                             required
@@ -1912,7 +1911,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Correo Electrónico</label>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Correo Electrónico</label>
                           <input
                             type="email"
                             className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
@@ -1927,7 +1926,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                     /* Celular y Correo de Contacto directo si es independiente */
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular de Contacto</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Celular de Contacto</label>
                         <input
                           type="text"
                           required
@@ -1938,7 +1937,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                         />
                       </div>
                       <div>
-                        <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Correo Electrónico</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Correo Electrónico</label>
                         <input
                           type="email"
                           className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
@@ -1953,14 +1952,14 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   {/* Campos dinámicos de los Alumnos */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest">
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                         {newStudentType === 'dependent' ? 'Datos de los Alumnos (Hijos)' : 'Datos del Alumno'}
                       </label>
                       {newStudentType === 'dependent' && (
                         <button
                           type="button"
                           onClick={() => setNewStudents([...newStudents, { nombre_completo: '', edad: '' }])}
-                          className="text-xs font-black text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-100 flex items-center gap-1 cursor-pointer transition-all shadow-sm"
+                          className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-100 flex items-center gap-1 cursor-pointer transition-all shadow-sm"
                         >
                           <Plus size={12} /> Añadir hijo
                         </button>
@@ -1971,7 +1970,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                       {newStudents.map((st, idx) => (
                         <div key={idx} className="flex gap-2 items-end p-3.5 bg-slate-50 border border-slate-100 rounded-xl relative group">
                           <div className="flex-1 space-y-1">
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</label>
                             <input
                               type="text"
                               required
@@ -1986,7 +1985,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                             />
                           </div>
                           <div className="w-20 space-y-1">
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Edad</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Edad</label>
                             <input
                               type="number"
                               required
@@ -2017,7 +2016,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
                   {/* Sede / Filial */}
                   <div>
-                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Sede / Filial</label>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Sede / Filial</label>
                     <select
                       value={selectedFilialId || ''}
                       onChange={(e) => setSelectedFilialId(Number(e.target.value) || null)}
@@ -2032,7 +2031,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 {/* Columna Derecha: Calendario y Cinta Horaria */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de la Entrevista</label>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Fecha de la Entrevista</label>
                     {renderMiniFormCalendar()}
                   </div>
                   <div>
@@ -2073,7 +2072,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                       });
                       setIsConfirmingSave(true);
                     }}
-                    className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-md hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs cursor-pointer"
+                    className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs shadow-md shadow-emerald-100/50 cursor-pointer"
                   >
                     Agendar Entrevista
                   </button>

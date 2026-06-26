@@ -41,9 +41,9 @@ import {
   Menu,
   FileText,
   Settings,
-  Mail
+  Mail,
+  BarChart3
 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 import {
   AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado, MensajeWsp,
   ColorCorporativo, Historia, Carrusel02Imagen
@@ -59,14 +59,21 @@ import { ApoderadosView } from './views/ApoderadosView';
 import { FilialesView } from './views/FilialesView';
 import { HistoriasView } from './views/HistoriasView';
 import { CarruselView } from './views/CarruselView';
+import { ReportesView } from './views/ReportesView';
 
-// Configuración de Supabase proporcionada por el usuario
-const SUPABASE_URL = 'https://jtrugvxgztnxbhwjtiou.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0cnVndnhnenRueGJod2p0aW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDQxMTksImV4cCI6MjA4NzcyMDExOX0.Kw-SMk8ABVNfFEeYoN8oDgbpDv7Uk_cDN23IccH7zoM';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Importar servicios y constantes de configuración
+import { SUPABASE_URL } from './config/supabase';
+import { getAlumnos, createAlumno, deleteAlumno, createAlumnosBulk } from './services/alumnos';
+import { getApoderados, createApoderado, deleteApoderado } from './services/apoderados';
+import { getCitas, createCita, createCitasBulk, updateCitaEstado, updateCitaReprogramar, updateCitaObservaciones, deleteCita } from './services/citas';
+import { getFiliales, createFilial, updateFilial, updateFilialStatus, deleteFilial, uploadFilialFoto, getFilialFotoPublicUrl } from './services/filiales';
+import { getMensajesWsp, createMensajeWsp, updateMensajeWsp, deleteMensajeWsp, disassociateMensajeFromFiliales, associateMensajeWithFiliales } from './services/mensajes';
+import { getHistorias, createHistoria, updateHistoria, deleteHistoria, uploadHistoriaFoto } from './services/historias';
+import { getColoresCorporativos, createColorCorporativo, updateColorCorporativo, deleteColorCorporativo, checkColorInUse as checkColorInUseDb } from './services/colores';
+import { getCarruselImagenes, createCarruselImagen, deleteCarruselImagen, updateCarruselImagen, uploadCarruselFoto, removeCarruselFotos, getCarruselFotoPublicUrl } from './services/carrusel';
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias' | 'carrusel02'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias' | 'carrusel02' | 'reportes'>('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [filiales, setFiliales] = useState<Filial[]>([]);
@@ -303,24 +310,19 @@ const App: React.FC = () => {
     else setRefreshing(true);
 
     try {
-      const [alRes, filRes, appRes, apoRes, histRes, colorRes, c02Res, msgRes] = await Promise.all([
-        supabase.from('alumnos').select('*').order('creado_en', { ascending: false }),
-        supabase.from('filiales').select('*').order('nombre', { ascending: true }),
-        supabase.from('citas').select(`
-          *,
-          alumnos!citas_id_alumno_fkey (nombre_completo),
-          filiales!citas_id_filial_fkey (nombre)
-        `).order('creado_en', { ascending: false }),
-        supabase.from('apoderados').select('*').order('creado_en', { ascending: false }),
-        supabase.from('historias_transformacion').select('*').order('orden', { ascending: true }),
-        supabase.from('colores_corporativos').select('*').eq('activo', true).order('nombre', { ascending: true }),
-        supabase.from('carrusel_02_imagenes').select('*').order('orden', { ascending: true }),
-        supabase.from('mensajes_wsp').select('*').order('created_at', { ascending: false })
+      const [alRes, filRes, appResData, apoRes, histRes, colorRes, c02Res, msgRes] = await Promise.all([
+        getAlumnos(),
+        getFiliales(),
+        getCitas(),
+        getApoderados(),
+        getHistorias(),
+        getColoresCorporativos(),
+        getCarruselImagenes(),
+        getMensajesWsp()
       ]);
 
       if (alRes.error) console.error('[FETCH] Error alumnos:', alRes.error.message);
       if (filRes.error) console.error('[FETCH] Error filiales:', filRes.error.message);
-      if (appRes.error) console.error('[FETCH] Error citas:', appRes.error.message);
       if (apoRes.error) console.error('[FETCH] Error apoderados:', apoRes.error.message);
       if (msgRes.error) console.error('[FETCH] Error mensajes wsp:', msgRes.error.message);
 
@@ -331,36 +333,9 @@ const App: React.FC = () => {
       if (colorRes.data) setColoresCorporativos(colorRes.data);
       if (c02Res.data) setCarrusel02(c02Res.data);
       if (msgRes.data) setMensajesWsp(msgRes.data);
-      if (appRes.data) {
-        const transformedApps = appRes.data.map((a: any) => {
-          const alumnoData = Array.isArray(a.alumnos) ? a.alumnos[0] : a.alumnos;
-          const filialData = Array.isArray(a.filiales) ? a.filiales[0] : a.filiales;
 
-          const calculatedTipoCita = a.tipo_cita || (
-            (a.tipo_persona?.startsWith('existente_') || a.estado === 'PENDIENTE' || a.estado === 'ASISTIÓ' || a.estado === 'FALTÓ')
-              ? 'alumno_existente'
-              : (a.tipo_persona === 'independiente' ? 'matricula_independiente' : 'matricula_dependiente')
-          );
-          return {
-            ...a,
-            tipo_cita: calculatedTipoCita,
-            estado: a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.CONFIRMADO : a.estado,
-            alumno_nombre: alumnoData?.nombre_completo || 'Sin nombre',
-            filial_nombre: filialData?.nombre || 'Sin sede'
-          };
-        });
-
-        transformedApps.sort((a: any, b: any) => {
-          const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
-          const timeB = b.creado_en ? new Date(b.creado_en).getTime() : 0;
-          if (timeA !== timeB) {
-            return timeB - timeA;
-          }
-          return b.id - a.id;
-        });
-
-        setAppointments(transformedApps);
-      }
+      // appResData ya está completamente normalizado y ordenado por getCitas()
+      setAppointments(appResData);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -389,7 +364,8 @@ const App: React.FC = () => {
 
   const handleUpdateAppointmentStatus = async (id: number, status: AppointmentStatus) => {
     console.log(`Intentando actualizar cita ID: ${id} a estado: ${status}`);
-    const { data, error } = await supabase.from('citas').update({ estado: status }).eq('id', id).select();
+    const app = appointments.find(a => a.id === id);
+    const { data, error } = await updateCitaEstado(id, status, app?.tipo_cita);
 
     if (error) {
       console.error("Error Supabase:", error);
@@ -413,7 +389,8 @@ const App: React.FC = () => {
       confirmText: 'Eliminar',
       isDestructive: true,
       onConfirm: async () => {
-        const { error } = await supabase.from('citas').delete().eq('id', id);
+        const app = appointments.find(a => a.id === id);
+        const { error } = await deleteCita(id, app?.tipo_cita);
         if (!error) {
           setAppointments(prev => prev.filter(a => a.id !== id));
         } else {
@@ -422,7 +399,6 @@ const App: React.FC = () => {
       }
     });
   };
-
   const handleAddAppointment = async (booking: any) => {
     setLoading(true);
     try {
@@ -442,20 +418,13 @@ const App: React.FC = () => {
           tipo_cita: 'alumno_existente'
         };
 
-        const { data, error } = await supabase
-          .from('citas')
-          .insert([payload])
-          .select(`
-            *,
-            alumnos!citas_id_alumno_fkey (nombre_completo),
-            filiales!citas_id_filial_fkey (nombre)
-          `)
-          .single();
+        const { data, error } = await createCita(payload);
 
         if (error) throw error;
         if (data) {
           const transformed = {
             ...data,
+            tipo_cita: 'alumno_existente',
             alumno_nombre: data.alumnos?.nombre_completo,
             filial_nombre: data.filiales?.nombre,
             estado: data.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.CONFIRMADO : data.estado
@@ -478,11 +447,7 @@ const App: React.FC = () => {
             email: booking.apoderadoEmail || null,
             creado_en: new Date().toISOString()
           };
-          const { data: apoData, error: apoError } = await supabase
-            .from('apoderados')
-            .insert([apoPayload])
-            .select()
-            .single();
+          const { data: apoData, error: apoError } = await createApoderado(apoPayload);
 
           if (apoError) throw apoError;
           apoderadoId = apoData.id;
@@ -499,10 +464,7 @@ const App: React.FC = () => {
           creado_en: new Date().toISOString()
         }));
 
-        const { data: alData, error: alError } = await supabase
-          .from('alumnos')
-          .insert(alumnosToInsert)
-          .select();
+        const { data: alData, error: alError } = await createAlumnosBulk(alumnosToInsert);
 
         if (alError) throw alError;
         newAlumnosList.push(...alData);
@@ -516,17 +478,10 @@ const App: React.FC = () => {
           estado: AppointmentStatus.PENDIENTE,
           creado_en: new Date().toISOString(),
           observaciones: booking.observaciones || null,
-          tipo_cita: booking.newStudentType === 'independent' ? 'matricula_independiente' : 'matricula_dependiente'
+          tipo_cita: 'matricula'
         }));
 
-        const { data: appData, error: appError } = await supabase
-          .from('citas')
-          .insert(appointmentsToInsert)
-          .select(`
-            *,
-            alumnos!citas_id_alumno_fkey (nombre_completo),
-            filiales!citas_id_filial_fkey (nombre)
-          `);
+        const { data: appData, error: appError } = await createCitasBulk(appointmentsToInsert);
 
         if (appError) throw appError;
 
@@ -537,6 +492,7 @@ const App: React.FC = () => {
 
         const transformedApps = appData.map((a: any) => ({
           ...a,
+          tipo_cita: a.tipo_persona === 'independiente' ? 'matricula_independiente' : 'matricula_dependiente',
           alumno_nombre: a.alumnos?.nombre_completo,
           filial_nombre: a.filiales?.nombre,
           estado: a.estado?.toUpperCase() === 'VERIFICADO' ? AppointmentStatus.CONFIRMADO : a.estado
@@ -579,7 +535,7 @@ const App: React.FC = () => {
       id_apoderado: esDependiente ? Number(newAl.id_apoderado) : null,
       creado_en: new Date().toISOString()
     };
-    const { data, error } = await supabase.from('alumnos').insert([payload]).select().single();
+    const { data, error } = await createAlumno(payload);
     if (!error && data) {
       setAlumnos([data, ...alumnos]);
       setIsModalOpen(false);
@@ -597,7 +553,7 @@ const App: React.FC = () => {
       email: newAp.email || null,
       creado_en: new Date().toISOString()
     };
-    const { data, error } = await supabase.from('apoderados').insert([payload]).select().single();
+    const { data, error } = await createApoderado(payload);
     if (!error && data) {
       setApoderados([data, ...apoderados]);
       setIsModalOpen(false);
@@ -608,7 +564,7 @@ const App: React.FC = () => {
 
   const handleDeleteApoderado = async (id: number) => {
     if (confirm('¿Seguro que desea eliminar este apoderado? Esto podría afectar a los alumnos asociados.')) {
-      const { error } = await supabase.from('apoderados').delete().eq('id', id);
+      const { error } = await deleteApoderado(id);
       if (!error) {
         setApoderados(prev => prev.filter(a => a.id !== id));
       } else {
@@ -619,7 +575,7 @@ const App: React.FC = () => {
 
   const handleDeleteAlumno = async (id: number) => {
     if (confirm('¿Seguro que desea eliminar este alumno? Se eliminarán también sus citas.')) {
-      const { error } = await supabase.from('alumnos').delete().eq('id', id);
+      const { error } = await deleteAlumno(id);
       if (!error) {
         setAlumnos(prev => prev.filter(al => al.id !== id));
         setAppointments(prev => prev.filter(app => app.id_alumno !== id));
@@ -656,9 +612,7 @@ const App: React.FC = () => {
       const safeName = data.nombre.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const fileName = `${safeName}_${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('Filiales')
-        .upload(fileName, filialFile);
+      const { error: uploadError } = await uploadFilialFoto(fileName, filialFile);
 
       setUploadingFilial(false);
 
@@ -667,8 +621,7 @@ const App: React.FC = () => {
         throw new Error(uploadError.message);
       }
 
-      const { data: publicUrlData } = supabase.storage.from('Filiales').getPublicUrl(fileName);
-      return publicUrlData.publicUrl;
+      return getFilialFotoPublicUrl(fileName);
     };
 
     if (editingItem) {
@@ -684,7 +637,7 @@ const App: React.FC = () => {
               ...payloadBase,
               file_path: newFilePath !== undefined ? newFilePath : editingItem.file_path || null
             };
-            const { data: updated, error } = await supabase.from('filiales').update(payload).eq('id', editingItem.id).select().single();
+            const { data: updated, error } = await updateFilial(editingItem.id, payload);
             if (!error && updated) {
               setFiliales(prev => prev.map(f => f.id === updated.id ? updated : f));
               setEditingItem(null);
@@ -704,7 +657,7 @@ const App: React.FC = () => {
           ...payloadBase,
           file_path: newFilePath || null
         };
-        const { data: created, error } = await supabase.from('filiales').insert([payload]).select().single();
+        const { data: created, error } = await createFilial(payload);
         if (!error && created) {
           setFiliales([created, ...filiales]);
           setIsModalOpen(false);
@@ -726,20 +679,19 @@ const App: React.FC = () => {
         confirmText: 'Desactivar',
         isDestructive: true,
         onConfirm: async () => {
-          const { error } = await supabase.from('filiales').update({ activo: !currentStatus }).eq('id', id);
+          const { error } = await updateFilialStatus(id, !currentStatus);
           if (!error) {
             setFiliales(prev => prev.map(f => f.id === id ? { ...f, activo: !currentStatus } : f));
           }
         }
       });
     } else {
-      const { error } = await supabase.from('filiales').update({ activo: !currentStatus }).eq('id', id);
+      const { error } = await updateFilialStatus(id, !currentStatus);
       if (!error) {
         setFiliales(prev => prev.map(f => f.id === id ? { ...f, activo: !currentStatus } : f));
       }
     }
   };
-
   const openEditFilial = (filial: Filial) => {
     setEditingItem(filial);
     setIsModalOpen(true);
@@ -812,7 +764,7 @@ const App: React.FC = () => {
       confirmText: 'Eliminar',
       isDestructive: true,
       onConfirm: async () => {
-        const { error } = await supabase.from('mensajes_wsp').delete().eq('id', msg.id);
+        const { error } = await deleteMensajeWsp(msg.id);
         if (!error) {
           setMensajesWsp(prev => prev.filter(m => m.id !== msg.id));
           setFiliales(prev => prev.map(f => f.id_mensaje_wsp === msg.id ? { ...f, id_mensaje_wsp: null } : f));
@@ -840,11 +792,11 @@ const App: React.FC = () => {
         let msgId = editingMensaje?.id;
 
         if (editingMensaje) {
-          const { error } = await supabase.from('mensajes_wsp').update(payload).eq('id', msgId);
+          const { error } = await updateMensajeWsp(editingMensaje.id, payload);
           if (error) { alert('Error actualizando mensaje: ' + error.message); return; }
           setMensajesWsp(prev => prev.map(m => m.id === msgId ? { ...m, ...payload } : m));
         } else {
-          const { data, error } = await supabase.from('mensajes_wsp').insert([payload]).select().single();
+          const { data, error } = await createMensajeWsp(payload);
           if (error) { alert('Error creando mensaje: ' + error.message); return; }
           msgId = data.id;
           setMensajesWsp([data, ...mensajesWsp]);
@@ -856,11 +808,11 @@ const App: React.FC = () => {
 
         if (removedFiliales.length > 0) {
           const removedIds = removedFiliales.map(f => f.id);
-          await supabase.from('filiales').update({ id_mensaje_wsp: null }).in('id', removedIds);
+          await disassociateMensajeFromFiliales(removedIds);
         }
-        if (newFiliales.length > 0) {
+        if (newFiliales.length > 0 && msgId !== undefined) {
           const newIds = newFiliales.map(f => f.id);
-          await supabase.from('filiales').update({ id_mensaje_wsp: msgId }).in('id', newIds);
+          await associateMensajeWithFiliales(msgId, newIds);
         }
 
         setFiliales(prev => prev.map(f => {
@@ -875,6 +827,7 @@ const App: React.FC = () => {
   };
 
   const onDragStartMensaje = (e: React.DragEvent, filial: Filial, source: 'available' | 'selected') => {
+    // Esconder la imagen por defecto
     const emptyImg = new Image();
     emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     e.dataTransfer.setDragImage(emptyImg, 0, 0);
@@ -893,7 +846,7 @@ const App: React.FC = () => {
   };
 
   const onDragMensaje = (e: React.DragEvent) => {
-    if (e.clientX === 0 && e.clientY === 0) return;
+    if (e.clientX === 0 && e.clientY === 0) return; // Ignorar el último evento en 0,0
     setDragPos({ x: e.clientX, y: e.clientY });
   };
 
@@ -937,44 +890,6 @@ const App: React.FC = () => {
   const deselectAllFilialesMensaje = () => {
     setAvailableFiliales(prev => [...prev, ...selectedFiliales]);
     setSelectedFiliales([]);
-  };
-
-  // --- Handlers de Reprogramación ---
-
-  const openRescheduleModal = (app: Appointment) => {
-    setRescheduleApp(app);
-    setCurrentCalendarDate(new Date());
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setIsRescheduleModalOpen(true);
-  };
-
-  const handleRescheduleConfirm = async () => {
-    if (!rescheduleApp || !selectedDate || !selectedTime) return;
-
-    setAlertConfig({
-      isOpen: true,
-      title: 'Reprogramar Cita',
-      message: '¿Confirmar reprogramación de la cita?',
-      confirmText: 'Reprogramar',
-      onConfirm: async () => {
-        const dateStr = selectedDate.toISOString().split('T')[0];
-        const newStatus = AppointmentStatus.PENDIENTE;
-
-        const { error } = await supabase
-          .from('citas')
-          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus })
-          .eq('id', rescheduleApp.id);
-
-        if (!error) {
-          setAppointments(prev => prev.map(a => a.id === rescheduleApp.id ? { ...a, fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus } : a));
-          setIsRescheduleModalOpen(false);
-          setAlertConfig({ isOpen: true, title: 'Éxito', message: 'Cita reprogramada con éxito', isAlertOnly: true, confirmText: 'Aceptar', onConfirm: () => setAlertConfig(null) });
-        } else {
-          setAlertConfig({ isOpen: true, title: 'Error', message: "Error al reprogramar: " + error.message, isAlertOnly: true, confirmText: 'Aceptar', onConfirm: () => setAlertConfig(null) });
-        }
-      }
-    });
   };
 
   const handleCreateAppointmentForDate = (dateStr: string, flow: 'existing' | 'new') => {
@@ -1045,10 +960,13 @@ const App: React.FC = () => {
 
         const newStatus = AppointmentStatus.PENDIENTE;
 
-        const { error } = await supabase
-          .from('citas')
-          .update({ fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus })
-          .eq('id', detailsAppointment.id);
+        const { error } = await updateCitaReprogramar(
+          detailsAppointment.id,
+          dateStr,
+          selectedTime,
+          newStatus,
+          detailsAppointment.tipo_cita
+        );
 
         if (!error) {
           const updatedApp = { ...detailsAppointment, fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus };
@@ -1066,10 +984,11 @@ const App: React.FC = () => {
   const handleUpdateNotes = async () => {
     if (!detailsAppointment) return;
 
-    const { error } = await supabase
-      .from('citas')
-      .update({ observaciones: detailsNotes || null })
-      .eq('id', detailsAppointment.id);
+    const { error } = await updateCitaObservaciones(
+      detailsAppointment.id,
+      detailsNotes || null,
+      detailsAppointment.tipo_cita
+    );
 
     if (!error) {
       const updatedApp = { ...detailsAppointment, observaciones: detailsNotes || null };
@@ -1095,6 +1014,42 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRescheduleConfirm = async () => {
+    if (!rescheduleApp || !selectedDate || !selectedTime) return;
+
+    setAlertConfig({
+      isOpen: true,
+      title: 'Reprogramar Cita',
+      message: '¿Confirmar reprogramación de la cita?',
+      confirmText: 'Reprogramar',
+      onConfirm: async () => {
+        // Formato YYYY-MM-DD
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        const newStatus = AppointmentStatus.PENDIENTE;
+
+        const { error } = await updateCitaReprogramar(
+          rescheduleApp.id,
+          dateStr,
+          selectedTime,
+          newStatus,
+          rescheduleApp.tipo_cita
+        );
+
+        if (!error) {
+          setAppointments(prev => prev.map(a => a.id === rescheduleApp.id ? { ...a, fecha_cita: dateStr, hora_cita: selectedTime, estado: newStatus } : a));
+          setIsRescheduleModalOpen(false);
+          setAlertConfig({ isOpen: true, title: 'Éxito', message: 'Cita reprogramada con éxito', isAlertOnly: true, confirmText: 'Aceptar', onConfirm: () => setAlertConfig(null) });
+        } else {
+          setAlertConfig({ isOpen: true, title: 'Error', message: "Error al reprogramar: " + error.message, isAlertOnly: true, confirmText: 'Aceptar', onConfirm: () => setAlertConfig(null) });
+        }
+      }
+    });
+  };
+
   // --- Handlers de Historias ---
 
   const getFotoUrl = (foto_path: string | null): string | null =>
@@ -1109,13 +1064,13 @@ const App: React.FC = () => {
         confirmText: 'Desactivar',
         isDestructive: true,
         onConfirm: async () => {
-          const { error } = await supabase.from('historias_transformacion').update({ activo: !h.activo }).eq('id', h.id);
+          const { error } = await updateHistoria(h.id, { activo: !h.activo });
           if (!error) setHistorias(prev => prev.map(x => x.id === h.id ? { ...x, activo: !h.activo } : x));
           else alert('Error: ' + error.message);
         }
       });
     } else {
-      const { error } = await supabase.from('historias_transformacion').update({ activo: !h.activo }).eq('id', h.id);
+      const { error } = await updateHistoria(h.id, { activo: !h.activo });
       if (!error) setHistorias(prev => prev.map(x => x.id === h.id ? { ...x, activo: !h.activo } : x));
       else alert('Error: ' + error.message);
     }
@@ -1129,7 +1084,7 @@ const App: React.FC = () => {
       confirmText: 'Eliminar',
       isDestructive: true,
       onConfirm: async () => {
-        const { error } = await supabase.from('historias_transformacion').delete().eq('id', h.id);
+        const { error } = await deleteHistoria(h.id);
         if (!error) setHistorias(prev => prev.filter(x => x.id !== h.id));
         else alert('Error al eliminar: ' + error.message);
       }
@@ -1186,9 +1141,7 @@ const App: React.FC = () => {
 
         const baseName = historiaFotoFile.name.replace(/\.[^/.]+$/, '');
         const nombreArchivo = Date.now() + '_' + baseName + '.webp';
-        const { error: upErr } = await supabase.storage
-          .from('Testimonios')
-          .upload(nombreArchivo, webpBlob, { upsert: true, contentType: 'image/webp' });
+        const { error: upErr } = await uploadHistoriaFoto(nombreArchivo, webpBlob);
 
         if (upErr) { alert('Error al subir foto: ' + upErr.message); setUploadingFoto(false); return; }
         foto_path = nombreArchivo;
@@ -1218,8 +1171,8 @@ const App: React.FC = () => {
         message: `¿Guardar los cambios en "${payload.nombre_alumno}"?`,
         confirmText: 'Guardar',
         onConfirm: async () => {
-          const { error, status, statusText } = await supabase.from('historias_transformacion').update(payload).eq('id', editingHistoria.id);
-          console.log('[UPDATE Historia] id:', editingHistoria.id, '| status:', status, statusText, '| error:', error);
+          const { error } = await updateHistoria(editingHistoria.id, payload);
+          console.log('[UPDATE Historia] id:', editingHistoria.id, '| error:', error);
           if (!error) {
             setHistorias(prev => prev.map(x => x.id === editingHistoria.id ? { ...x, ...payload } : x));
             setIsHistoriaModalOpen(false);
@@ -1227,7 +1180,7 @@ const App: React.FC = () => {
         }
       });
     } else {
-      const { data, error } = await supabase.from('historias_transformacion').insert([payload]).select().single();
+      const { data, error } = await createHistoria(payload);
       if (!error && data) { setHistorias(prev => [data, ...prev]); setIsHistoriaModalOpen(false); }
       else alert('Error al crear: ' + error?.message);
     }
@@ -1241,11 +1194,7 @@ const App: React.FC = () => {
   };
 
   const checkColorInUse = async (colorId: number): Promise<boolean> => {
-    const { data, error } = await supabase
-      .from('historias_transformacion')
-      .select('id')
-      .eq('id_color', colorId)
-      .limit(1);
+    const { data, error } = await checkColorInUseDb(colorId);
     if (error) { console.error(error); return false; }
     return !!(data && data.length > 0);
   };
@@ -1278,7 +1227,7 @@ const App: React.FC = () => {
         message: `¿Guardar los cambios en el color "${colorFormNombre}"?`,
         confirmText: 'Guardar',
         onConfirm: async () => {
-          const { error } = await supabase.from('colores_corporativos').update(payload).eq('id', editingColor.id);
+          const { error } = await updateColorCorporativo(editingColor.id, payload);
           if (!error) {
             setColoresCorporativos(prev => prev.map(c => c.id === editingColor.id ? { ...c, ...payload } : c));
             openColorModal(null);
@@ -1292,7 +1241,7 @@ const App: React.FC = () => {
         message: `¿Crear el nuevo color "${colorFormNombre}"?`,
         confirmText: 'Añadir',
         onConfirm: async () => {
-          const { data, error } = await supabase.from('colores_corporativos').insert([payload]).select().single();
+          const { data, error } = await createColorCorporativo(payload);
           if (!error && data) {
             setColoresCorporativos(prev => [...prev, data]);
             openColorModal(null);
@@ -1322,7 +1271,7 @@ const App: React.FC = () => {
       confirmText: 'Eliminar',
       isDestructive: true,
       onConfirm: async () => {
-        const { error } = await supabase.from('colores_corporativos').delete().eq('id', color.id);
+        const { error } = await deleteColorCorporativo(color.id);
         if (!error) {
           setColoresCorporativos(prev => prev.filter(c => c.id !== color.id));
         } else alert('Error al eliminar color: ' + error.message);
@@ -1332,8 +1281,7 @@ const App: React.FC = () => {
 
   // --- Helpers Carrusel 02 ---
   const getCarrusel02Url = (file_path: string): string => {
-    const { data } = supabase.storage.from('carrusel_02').getPublicUrl(file_path);
-    return data.publicUrl;
+    return getCarruselFotoPublicUrl(file_path);
   };
 
   const openCarrusel02Modal = (img: Carrusel02Imagen | null) => {
@@ -1378,19 +1326,14 @@ const App: React.FC = () => {
             if (fileSnap) {
               const webpBlob = await convertToWebPBlob(fileSnap);
               const fileName = `${Date.now()}_${fileSnap.name.replace(/\.[^/.]+$/, '')}.webp`;
-              const { error: upErr } = await supabase.storage
-                .from('carrusel_02')
-                .upload(fileName, webpBlob, { upsert: false, contentType: 'image/webp' });
+              const { error: upErr } = await uploadCarruselFoto(fileName, webpBlob);
               if (upErr) { alert('Error al subir imagen: ' + upErr.message); return; }
-              await supabase.storage.from('carrusel_02').remove([editingSnap.file_path]);
+              await removeCarruselFotos([editingSnap.file_path]);
               filePath = fileName;
             }
 
             const payload = { nombre, file_path: filePath, foto_position, foto_scale };
-            const { error } = await supabase
-              .from('carrusel_02_imagenes')
-              .update(payload)
-              .eq('id', editingSnap.id);
+            const { error } = await updateCarruselImagen(editingSnap.id, payload);
 
             if (!error) {
               setCarrusel02(prev => prev.map(x => x.id === editingSnap.id ? { ...x, ...payload } : x));
@@ -1409,18 +1352,12 @@ const App: React.FC = () => {
       try {
         const webpBlob = await convertToWebPBlob(fileSnap!);
         const fileName = `${Date.now()}_${fileSnap!.name.replace(/\.[^/.]+$/, '')}.webp`;
-        const { error: upErr } = await supabase.storage
-          .from('carrusel_02')
-          .upload(fileName, webpBlob, { upsert: false, contentType: 'image/webp' });
+        const { error: upErr } = await uploadCarruselFoto(fileName, webpBlob);
         if (upErr) { alert('Error al subir imagen: ' + upErr.message); return; }
 
         const nextOrden = carrusel02.length > 0 ? Math.max(...carrusel02.map(x => x.orden)) + 1 : 1;
         const payload = { nombre, file_path: fileName, foto_position, foto_scale, orden: nextOrden, activo: true };
-        const { data, error } = await supabase
-          .from('carrusel_02_imagenes')
-          .insert([payload])
-          .select()
-          .single();
+        const { data, error } = await createCarruselImagen(payload);
 
         if (!error && data) {
           setCarrusel02(prev => [...prev, data]);
@@ -1442,8 +1379,8 @@ const App: React.FC = () => {
       confirmText: 'Eliminar',
       isDestructive: true,
       onConfirm: async () => {
-        await supabase.storage.from('carrusel_02').remove([img.file_path]);
-        const { error } = await supabase.from('carrusel_02_imagenes').delete().eq('id', img.id);
+        await removeCarruselFotos([img.file_path]);
+        const { error } = await deleteCarruselImagen(img.id);
         if (!error) setCarrusel02(prev => prev.filter(x => x.id !== img.id));
         else alert('Error al eliminar: ' + error.message);
       }
@@ -1459,12 +1396,12 @@ const App: React.FC = () => {
         confirmText: 'Ocultar',
         isDestructive: true,
         onConfirm: async () => {
-          const { error } = await supabase.from('carrusel_02_imagenes').update({ activo: false }).eq('id', img.id);
+          const { error } = await updateCarruselImagen(img.id, { activo: false });
           if (!error) setCarrusel02(prev => prev.map(x => x.id === img.id ? { ...x, activo: false } : x));
         }
       });
     } else {
-      supabase.from('carrusel_02_imagenes').update({ activo: true }).eq('id', img.id)
+      updateCarruselImagen(img.id, { activo: true })
         .then(({ error }) => {
           if (!error) setCarrusel02(prev => prev.map(x => x.id === img.id ? { ...x, activo: true } : x));
         });
@@ -1499,7 +1436,7 @@ const App: React.FC = () => {
     carrusel02DragRef.current = null;
 
     await Promise.all(
-      updated.map(img => supabase.from('carrusel_02_imagenes').update({ orden: img.orden }).eq('id', img.id))
+      updated.map(img => updateCarruselImagen(img.id, { orden: img.orden }))
     );
   };
 
@@ -1523,95 +1460,153 @@ const App: React.FC = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 gradient-green text-white flex flex-col p-6 shadow-xl transition-transform duration-300 transform h-screen
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-50 border-r border-slate-200/60 text-slate-700 flex flex-col p-5 shadow-[2px_0_12px_rgba(0,0,0,0.015)] backdrop-blur-md transition-transform duration-300 transform h-screen
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="flex items-center justify-between gap-3 mb-10">
+        <div className="bg-white border border-slate-200/50 rounded-2xl p-4 mb-6 shadow-sm flex items-center justify-between gap-3 relative">
           <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-lg shadow-lg">
-              <Users size={24} />
+            <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl border border-emerald-100/30">
+              <Users size={20} />
             </div>
-            <h1 className="text-2xl font-black tracking-tight">Dashboard</h1>
+            <div>
+              <h1 className="text-[15px] font-bold text-slate-800 tracking-tight leading-none mb-1">Dashboard</h1>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider leading-none">EduTrack</p>
+            </div>
           </div>
           {/* Close button inside sidebar (mobile only) */}
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="p-1.5 hover:bg-white/10 rounded-lg md:hidden text-white/80 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-slate-100 rounded-lg md:hidden text-slate-400 hover:text-slate-600 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         <nav className="space-y-1.5 flex-1">
-          <button onClick={() => { setActiveView('dashboard'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'dashboard' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <Home size={22} /> Dashboard
+          <button
+            onClick={() => { setActiveView('dashboard'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all cursor-pointer ${
+              activeView === 'dashboard'
+                ? 'bg-white shadow-[0_2px_6px_rgba(0,0,0,0.02)] border border-slate-200/40 text-emerald-700 font-semibold'
+                : 'hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 border border-transparent'
+            }`}
+          >
+            <Home size={20} className={activeView === 'dashboard' ? 'text-emerald-600' : 'text-slate-400'} /> Dashboard
           </button>
-          <button onClick={() => { setActiveView('citas'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'citas' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <Calendar size={22} /> Agenda
+          <button
+            onClick={() => { setActiveView('citas'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all cursor-pointer ${
+              activeView === 'citas'
+                ? 'bg-white shadow-[0_2px_6px_rgba(0,0,0,0.02)] border border-slate-200/40 text-emerald-700 font-semibold'
+                : 'hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 border border-transparent'
+            }`}
+          >
+            <Calendar size={20} className={activeView === 'citas' ? 'text-emerald-600' : 'text-slate-400'} /> Agenda
           </button>
-          <button onClick={() => { setActiveView('alumnos'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'alumnos' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <GraduationCap size={22} /> Alumnos
+          <button
+            onClick={() => { setActiveView('alumnos'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all cursor-pointer ${
+              activeView === 'alumnos'
+                ? 'bg-white shadow-[0_2px_6px_rgba(0,0,0,0.02)] border border-slate-200/40 text-emerald-700 font-semibold'
+                : 'hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 border border-transparent'
+            }`}
+          >
+            <GraduationCap size={20} className={activeView === 'alumnos' ? 'text-emerald-600' : 'text-slate-400'} /> Alumnos
           </button>
-          <button onClick={() => { setActiveView('apoderados'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all ${activeView === 'apoderados' ? 'bg-white/15 shadow-inner' : 'hover:bg-white/5 text-white/70'}`}>
-            <Users size={22} /> Apoderados
+          <button
+            onClick={() => { setActiveView('apoderados'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all cursor-pointer ${
+              activeView === 'apoderados'
+                ? 'bg-white shadow-[0_2px_6px_rgba(0,0,0,0.02)] border border-slate-200/40 text-emerald-700 font-semibold'
+                : 'hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 border border-transparent'
+            }`}
+          >
+            <Users size={20} className={activeView === 'apoderados' ? 'text-emerald-600' : 'text-slate-400'} /> Apoderados
+          </button>
+          <button
+            onClick={() => { setActiveView('reportes'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
+            className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all cursor-pointer ${
+              activeView === 'reportes'
+                ? 'bg-white shadow-[0_2px_6px_rgba(0,0,0,0.02)] border border-slate-200/40 text-emerald-700 font-semibold'
+                : 'hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 border border-transparent'
+            }`}
+          >
+            <BarChart3 size={20} className={activeView === 'reportes' ? 'text-emerald-600' : 'text-slate-400'} /> Reportes
           </button>
 
           {/* Opción desglosable: Gestión Web */}
-          <div className="pt-2">
+          <div className="pt-1">
             <button
               onClick={() => setIsWebManagementOpen(!isWebManagementOpen)}
-              className={`flex items-center justify-between w-full p-3 rounded-xl font-bold text-[17px] transition-all hover:bg-white/5
-                ${['filiales', 'historias', 'carrusel02'].includes(activeView) ? 'text-white bg-white/5' : 'text-white/70'}`}
+              className={`flex items-center justify-between w-full p-2.5 rounded-xl font-medium text-[15px] transition-all hover:bg-slate-200/30 cursor-pointer
+                ${['filiales', 'historias', 'carrusel02'].includes(activeView)
+                  ? 'bg-white shadow-[0_2px_6px_rgba(0,0,0,0.02)] border border-slate-200/40 text-emerald-700 font-semibold'
+                  : 'text-slate-500 hover:text-slate-800 border border-transparent'}`}
             >
               <div className="flex items-center gap-3">
-                <Palette size={22} />
+                <Palette size={20} className={['filiales', 'historias', 'carrusel02'].includes(activeView) ? 'text-emerald-600' : 'text-slate-400'} />
                 <span>Gestión Web</span>
               </div>
               <ChevronLeft
                 size={16}
-                className={`transition-transform duration-200 ${isWebManagementOpen ? '-rotate-90' : ''}`}
+                className={`transition-transform duration-200 ${isWebManagementOpen ? '-rotate-90' : ''} ${
+                  ['filiales', 'historias', 'carrusel02'].includes(activeView) ? 'text-emerald-600' : 'text-slate-400'
+                }`}
               />
             </button>
 
             {/* Submenú desglosable */}
-            <div className={`mt-1 pl-4 space-y-1 transition-all overflow-hidden duration-300 ${isWebManagementOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
-              }`}>
+            <div className={`mt-1 pl-4 ml-6 border-l border-slate-200/80 space-y-1 transition-all overflow-hidden duration-300 ${
+              isWebManagementOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+            }`}>
               <button
                 onClick={() => { setActiveView('filiales'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
-                className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-bold text-[15px] transition-all ${activeView === 'filiales' ? 'bg-white/15 text-white shadow-inner' : 'hover:bg-white/5 text-white/60'}`}
+                className={`flex items-center gap-2.5 w-full py-2 px-3 rounded-lg font-medium text-[13px] transition-all cursor-pointer ${
+                  activeView === 'filiales'
+                    ? 'text-emerald-700 bg-white/60 shadow-sm border border-slate-100 font-semibold'
+                    : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100/50'
+                }`}
               >
-                <MapPin size={18} /> Filiales
+                <MapPin size={16} className={activeView === 'filiales' ? 'text-emerald-600' : 'text-slate-400'} /> Filiales
               </button>
               <button
                 onClick={() => { setActiveView('historias'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
-                className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-bold text-[15px] transition-all ${activeView === 'historias' ? 'bg-white/15 text-white shadow-inner' : 'hover:bg-white/5 text-white/60'}`}
+                className={`flex items-center gap-2.5 w-full py-2 px-3 rounded-lg font-medium text-[13px] transition-all cursor-pointer ${
+                  activeView === 'historias'
+                    ? 'text-emerald-700 bg-white/60 shadow-sm border border-slate-100 font-semibold'
+                    : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100/50'
+                }`}
               >
-                <Sparkles size={18} /> Historias
+                <Sparkles size={16} className={activeView === 'historias' ? 'text-emerald-600' : 'text-slate-400'} /> Historias
               </button>
               <button
                 onClick={() => { setActiveView('carrusel02'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
-                className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-bold text-[15px] transition-all ${activeView === 'carrusel02' ? 'bg-white/15 text-white shadow-inner' : 'hover:bg-white/5 text-white/60'}`}
+                className={`flex items-center gap-2.5 w-full py-2 px-3 rounded-lg font-medium text-[13px] transition-all cursor-pointer ${
+                  activeView === 'carrusel02'
+                    ? 'text-emerald-700 bg-white/60 shadow-sm border border-slate-100 font-semibold'
+                    : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100/50'
+                }`}
               >
-                <Images size={18} /> Carrusel 02
+                <Images size={16} className={activeView === 'carrusel02' ? 'text-emerald-600' : 'text-slate-400'} /> Carrusel 02
               </button>
             </div>
           </div>
         </nav>
 
         {/* Botón de Configuración en la parte inferior de la barra de menú */}
-        <div className="pt-4 border-t border-white/10 mt-auto">
+        <div className="pt-4 border-t border-slate-200/60 mt-auto">
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-3 w-full p-3 rounded-xl font-bold text-[17px] transition-all hover:bg-white/5 text-white/70 hover:text-white cursor-pointer"
+            className="flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 cursor-pointer border border-transparent"
           >
-            <Settings size={22} /> Configuración
+            <Settings size={20} className="text-slate-400" /> Configuración
           </button>
         </div>
 
         {/* Handle (Hojal) for collapsing/expanding sidebar */}
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute left-full bottom-8 w-6 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-xl shadow-xl hidden md:flex items-center justify-center border-y border-r border-emerald-500/20 transition-all duration-300 hover:w-7 active:scale-95 cursor-pointer z-50 group"
+          className="absolute left-full bottom-8 w-6 h-14 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-r-xl border-y border-r border-slate-200/80 shadow-md hidden md:flex items-center justify-center transition-all duration-300 hover:w-7 active:scale-95 cursor-pointer z-50 group"
           style={{ marginLeft: '-1px' }}
           title={isSidebarOpen ? "Ocultar menú" : "Mostrar menú"}
         >
@@ -1636,7 +1631,7 @@ const App: React.FC = () => {
               <Menu size={20} />
             </button>
             <div>
-              <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">{activeView === 'citas' ? 'Agenda diaria' : activeView}</h2>
+              <h2 className="text-2xl font-bold text-slate-800 tracking-tight capitalize">{activeView === 'citas' ? 'Agenda diaria' : activeView}</h2>
               <p className="text-slate-500 font-bold italic text-sm">Control centralizado de operaciones</p>
             </div>
             <button
@@ -1663,7 +1658,7 @@ const App: React.FC = () => {
             )}
             <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2 px-5">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[13px] font-black text-slate-500 uppercase tracking-widest">Conectado</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Conectado</span>
             </div>
           </div>
         </header>
@@ -1912,6 +1907,15 @@ const App: React.FC = () => {
           />
         )}
 
+        {activeView === 'reportes' && (
+          <ReportesView
+            appointments={appointments}
+            alumnos={alumnos}
+            apoderados={apoderados}
+            filiales={filiales}
+          />
+        )}
+
         {/* Settings Modal */}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -1922,7 +1926,7 @@ const App: React.FC = () => {
                   <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
                     <Settings size={20} />
                   </div>
-                  <h3 className="text-xl font-black text-slate-800 tracking-tight">Configuración</h3>
+                  <h3 className="text-lg font-bold text-slate-800 tracking-tight">Configuración</h3>
                 </div>
                 <button
                   onClick={() => setIsSettingsOpen(false)}
@@ -1965,12 +1969,12 @@ const App: React.FC = () => {
                 handleAddAlumno(Object.fromEntries(fd));
               }} className="space-y-4">
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nombre Completo</label>
                   <input type="text" name="nombre_completo" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Javier Estrada" />
                 </div>
                 {/* Tipo de alumno */}
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Alumno</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tipo de Alumno</label>
                   <div className="grid grid-cols-2 gap-2">
                     <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-100 transition-all">
                       <input type="radio" name="tipo_alumno" value="dependiente" defaultChecked className="text-blue-600" />
@@ -1990,7 +1994,7 @@ const App: React.FC = () => {
                 </div>
                 {/* Apoderado */}
                 <div id="apoderado-section">
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Apoderado <span className="text-blue-400">(solo si dependiente)</span></label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Apoderado <span className="text-blue-400">(solo si dependiente)</span></label>
                   <select name="id_apoderado" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
                     <option value="">Sin apoderado (independiente)</option>
                     {apoderados.map(ap => <option key={ap.id} value={ap.id}>{ap.nombre_completo}</option>)}
@@ -1998,19 +2002,19 @@ const App: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Edad</label>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Edad</label>
                     <input type="number" name="edad" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
                   </div>
                   <div>
-                    <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular <span className="text-emerald-500">(si independiente)</span></label>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Celular <span className="text-emerald-500">(si independiente)</span></label>
                     <input type="text" name="telefono" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999000888" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Correo Electrónico <span className="text-emerald-500">(si independiente)</span></label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Correo Electrónico <span className="text-emerald-500">(si independiente)</span></label>
                   <input type="email" name="email" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="correo@ejemplo.com" />
                 </div>
-                <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 btn-glow">
+                <button type="submit" className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow-md shadow-emerald-100/50 hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs mt-4 btn-glow">
                   Guardar Alumno
                 </button>
               </form>
@@ -2021,18 +2025,18 @@ const App: React.FC = () => {
                 handleAddApoderado(Object.fromEntries(fd));
               }} className="space-y-4">
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nombre Completo</label>
                   <input type="text" name="nombre_completo" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Juan Pérez" />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Celular</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Celular</label>
                   <input type="text" name="telefono" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999888777" />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Correo Electrónico</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Correo Electrónico</label>
                   <input type="email" name="email" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="correo@ejemplo.com" />
                 </div>
-                <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-4 btn-glow">
+                <button type="submit" className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow-md shadow-emerald-100/50 hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs mt-4 btn-glow">
                   Guardar Apoderado
                 </button>
               </form>
@@ -2044,7 +2048,7 @@ const App: React.FC = () => {
               }} className="space-y-4">
                 {/* Imagen Filial */}
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                     {editingItem ? 'Imagen (opcional — reemplaza la actual)' : 'Imagen (opcional)'}
                   </label>
                   <div className="flex items-center gap-2">
@@ -2081,7 +2085,7 @@ const App: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsFilialAjusteOpen(v => !v)}
-                        className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${isFilialAjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                        className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all border ${isFilialAjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                       >
                         {isFilialAjusteOpen ? 'Cerrar' : '✦ Ajustar'}
                       </button>
@@ -2211,7 +2215,7 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                <button disabled={uploadingFilial} type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all mt-4 btn-glow uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed">
+                <button disabled={uploadingFilial} type="submit" className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow-md shadow-emerald-100/50 hover:bg-emerald-700 transition-all mt-4 btn-glow uppercase tracking-wider text-xs disabled:opacity-50 disabled:cursor-not-allowed">
                   {uploadingFilial ? 'Subiendo imagen...' : (editingItem ? 'Actualizar en DB' : 'Crear en DB')}
                 </button>
               </form>

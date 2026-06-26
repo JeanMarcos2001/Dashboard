@@ -29,7 +29,7 @@ export const ApoderadosView: React.FC<ApoderadosViewProps> = ({
     <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
       <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
         <h3 className="text-xl font-bold text-slate-800">Directorio de Apoderados</h3>
-        <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200">
+        <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50">
           <Plus size={18} /> Nuevo Apoderado
         </button>
       </div>
@@ -49,7 +49,7 @@ export const ApoderadosView: React.FC<ApoderadosViewProps> = ({
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">{ap.nombre_completo[0]}</div>
-                    <span className="font-bold text-slate-800">{ap.nombre_completo}</span>
+                    <span className="font-normal text-slate-800">{ap.nombre_completo}</span>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-slate-600 font-medium">

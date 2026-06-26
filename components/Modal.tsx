@@ -11,7 +11,7 @@ interface ModalProps {
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
   if (!isOpen) return null;
-  const titleSizeClass = title.includes('Agendar') ? 'text-3xl font-black' : 'text-xl font-bold';
+  const titleSizeClass = title.includes('Agendar') ? 'text-xl font-bold' : 'text-lg font-semibold';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
       <div className={`bg-white rounded-3xl w-full ${maxWidth} shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]`}>

@@ -18,7 +18,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   };
   const config = configs[status] || configs[AppointmentStatus.PENDIENTE];
   return (
-    <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-tight border ${config.classes}`}>
+    <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${config.classes}`}>
       {config.icon} {config.label}
     </span>
   );

@@ -8,13 +8,24 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <style>
         /* REGLA DE DISEÑO: El tamaño mínimo de tipografía usable en toda la app es 8pt (11px). */
+        body, input, select, textarea, button {
+            font-family: 'Montserrat', sans-serif;
+        }
         body {
-            font-family: 'Darker Grotesque', sans-serif;
             background-color: #f8fafc;
+        }
+        /* Estilo global de placeholders para hacerlos más delgados y menos intrusivos */
+        input::placeholder, textarea::placeholder {
+            font-weight: 400 !important;
+            color: #94a3b8 !important; /* text-slate-400 */
+            opacity: 0.75 !important;
+        }
+        /* Estilo global de comboboxes (select) para mostrar las opciones visibles en letra regular */
+        select, select option {
+            font-weight: 400 !important;
         }
 
         @keyframes slideFromRight1 {

@@ -22,13 +22,13 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, c
         <div className={`p-3 rounded-2xl ${colorMap[color].split(' ')[0]} group-hover:scale-110 transition-transform`}>
           {icon}
         </div>
-        <span className={`text-xs font-black uppercase px-2 py-1 rounded-lg ${colorMap[color]}`}>
+        <span className={`text-xs font-semibold uppercase px-2 py-1 rounded-lg ${colorMap[color]}`}>
           {trend}
         </span>
       </div>
       <div>
-        <p className="text-slate-400 font-bold text-sm uppercase tracking-wider mb-1">{title}</p>
-        <h4 className="text-4xl font-black text-slate-800 leading-none">{value}</h4>
+        <p className="text-slate-400 font-semibold text-xs uppercase tracking-wider mb-1">{title}</p>
+        <h4 className="text-2xl font-bold text-slate-800 leading-none">{value}</h4>
       </div>
     </div>
   );

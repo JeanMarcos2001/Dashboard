@@ -105,7 +105,7 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
 
               {/* Nombre */}
               <div>
-                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Etiqueta descriptiva</label>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Etiqueta descriptiva</label>
                 <input
                   name="nombre"
                   defaultValue={carrusel02Editing?.nombre ?? ''}
@@ -116,7 +116,7 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
 
               {/* File input + botón Ajustar */}
               <div>
-                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                   {isEditing ? 'Nueva Imagen (opcional — reemplaza la actual)' : 'Imagen *'}
                 </label>
                 <div className="flex items-center gap-2">
@@ -152,7 +152,7 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsCarrusel02AjusteOpen(v => !v)}
-                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${isCarrusel02AjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all border ${isCarrusel02AjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                     >
                       {isCarrusel02AjusteOpen ? 'Cerrar' : '✦ Ajustar'}
                     </button>
@@ -218,20 +218,20 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
                     >
                       <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg" />
                     </div>
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[13px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">16 : 9</div>
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-xs font-semibold px-2 py-1 rounded-lg backdrop-blur-sm">16 : 9</div>
                     <div className="absolute top-2 right-2 bg-black/50 text-white text-[13px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{carrusel02PosX}% · {carrusel02PosY}%</div>
                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[12px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
                   </div>
                   <div className="bg-slate-900 p-4 space-y-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-white/60 text-[13px] font-black uppercase tracking-widest w-12">Zoom</span>
+                      <span className="text-white/60 text-xs font-semibold uppercase tracking-wider w-12">Zoom</span>
                       <input
                         type="range" min="1" max="2.5" step="0.05"
                         value={carrusel02Scale}
                         onChange={(e) => setCarrusel02Scale(parseFloat(e.target.value))}
                         className="flex-1 accent-emerald-400 cursor-pointer"
                       />
-                      <span className="text-white/80 text-xs font-black w-10 text-right">{carrusel02Scale.toFixed(2)}x</span>
+                      <span className="text-white/80 text-xs font-semibold w-10 text-right">{carrusel02Scale.toFixed(2)}x</span>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -244,7 +244,7 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsCarrusel02AjusteOpen(false)}
-                        className="flex-1 py-2 text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl transition-colors"
+                        className="flex-1 py-2 text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl transition-colors"
                       >
                         ✓ Guardar ajuste
                       </button>
@@ -268,7 +268,7 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
               <button
                 type="submit"
                 disabled={carrusel02Uploading}
-                className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-emerald-600 text-white font-semibold rounded-xl shadow-md hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {carrusel02Uploading
                   ? <><Loader2 size={16} className="animate-spin" /> Subiendo...</>
@@ -293,7 +293,7 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
             </div>
             <button
               onClick={() => openCarrusel02Modal(null)}
-              className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+              className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50"
             >
               <Upload size={18} /> Agregar Imagen
             </button>
@@ -325,7 +325,7 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
                   </div>
 
                   {/* Order badge */}
-                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 flex-shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-500 flex-shrink-0">
                     {img.orden}
                   </div>
 

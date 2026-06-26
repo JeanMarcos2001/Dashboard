@@ -47,29 +47,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, appointment
             return (
               <div key={app.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-200 group ${containerClasses}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl shadow-sm flex items-center justify-center font-black text-lg ${avatarClasses}`}>
+                  <div className={`w-10 h-10 rounded-xl shadow-sm flex items-center justify-center font-bold text-lg ${avatarClasses}`}>
                     {app.alumno_nombre?.[0] || 'A'}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-black text-slate-800 leading-none text-[15px]">{app.alumno_nombre}</p>
+                      <p className="font-semibold text-slate-800 leading-none text-[14px]">{app.alumno_nombre}</p>
                       {isNew && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
                           Nuevo
                         </span>
                       )}
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${isExistente
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${isExistente
                         ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50'
                         : 'bg-indigo-100 text-indigo-700 border border-indigo-200/50'
                         }`}>
                         {isExistente ? 'Cita' : 'Entrevista'}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 font-bold mt-1.5 uppercase">{app.fecha_cita} • {app.hora_cita}</p>
+                    <p className="text-xs text-slate-400 font-semibold mt-1.5 uppercase">{app.fecha_cita} • {app.hora_cita}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded-lg border border-slate-200/60 bg-white/70 text-slate-600 shadow-sm hidden sm:inline-block">
+                  <span className="text-[12px] font-bold uppercase px-1.5 py-0.5 rounded-lg border border-slate-200/60 bg-white/70 text-slate-600 shadow-sm hidden sm:inline-block">
                     {isIndependiente ? 'Indep.' : 'Apod.'}
                   </span>
                   <StatusBadge status={app.estado} />

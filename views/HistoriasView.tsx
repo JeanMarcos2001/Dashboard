@@ -101,11 +101,11 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
           <div className="p-6 overflow-y-auto">
             <form onSubmit={handleSaveHistoria} className="space-y-4">
               <div>
-                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre del Alumno</label>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Nombre del Alumno</label>
                 <input name="nombre_alumno" required defaultValue={editingHistoria?.nombre_alumno} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Mar&#237;a L&#243;pez" />
               </div>
               <div>
-                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Programa</label>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Programa</label>
                 <select name="programa" required defaultValue={editingHistoria?.programa ?? ''} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
                   <option value="">Seleccionar...</option>
                   <option>Profesional</option>
@@ -114,22 +114,22 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Narraci&#243;n / Testimonio <span className="text-slate-300 font-medium normal-case">(m&#225;x. 300 car.)</span></label>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Narraci&#243;n / Testimonio <span className="text-slate-300 font-medium normal-case">(m&#225;x. 300 car.)</span></label>
                 <textarea name="narracion" required maxLength={300} defaultValue={editingHistoria?.narracion} rows={4} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm resize-none" placeholder="Testimonio del alumno..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Palabras por Minuto</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Palabras por Minuto</label>
                   <input name="palabras_por_min" required defaultValue={editingHistoria?.palabras_por_min} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="e.g. 1,200 ppm" />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Orden en Carrusel</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Orden en Carrusel</label>
                   <input name="orden" type="number" min={0} defaultValue={editingHistoria?.orden ?? 0} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
                 </div>
               </div>
               {coloresCorporativos.length > 0 && (
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-2">Color de Fondo</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Color de Fondo</label>
                   <div className="flex flex-wrap gap-3">
                     {coloresCorporativos.map(c => (
                       <button key={c.id} type="button" onClick={() => setHistoriaColorSeleccionado(c.id)} title={c.nombre}
@@ -143,7 +143,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                 </div>
               )}
               <div>
-                <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Foto del Alumno</label>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Foto del Alumno</label>
                 {/* File input + Ajustar button */}
                 <div className="flex items-center gap-2 mb-3">
                   <input type="file" accept="image/*" onChange={(e) => {
@@ -152,7 +152,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                   }} className="flex-1 text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer" />
                   {historiaFotoPreview && (
                     <button type="button" onClick={() => setIsAjusteOpen(v => !v)}
-                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${isAjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all border ${isAjusteOpen ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
                       {isAjusteOpen ? 'Cerrar' : '✦ Ajustar'}
                     </button>
                   )}
@@ -176,21 +176,21 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                       <div className="pointer-events-none absolute" style={{ left: `calc(${ajustePosX}% - 12px)`, top: `calc(${ajustePosY}% - 12px)` }}>
                         <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg" />
                       </div>
-                      <div className="absolute top-2 left-2 bg-black/50 text-white text-[13px] font-black px-2 py-1 rounded-lg backdrop-blur-sm">3 : 2</div>
+                      <div className="absolute top-2 left-2 bg-black/50 text-white text-xs font-semibold px-2 py-1 rounded-lg backdrop-blur-sm">3 : 2</div>
                       <div className="absolute top-2 right-2 bg-black/50 text-white text-[13px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">{ajustePosX}% · {ajustePosY}%</div>
                       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 text-white/70 text-[12px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">Arrastra para mover el enfoque</div>
                     </div>
                     <div className="bg-slate-900 p-4 space-y-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-white/60 text-[13px] font-black uppercase tracking-widest w-12">Zoom</span>
+                        <span className="text-white/60 text-xs font-semibold uppercase tracking-wider w-12">Zoom</span>
                         <input type="range" min="1" max="2.5" step="0.05" value={ajusteScale} onChange={(e) => setAjusteScale(parseFloat(e.target.value))} className="flex-1 accent-emerald-400 cursor-pointer" />
-                        <span className="text-white/80 text-xs font-black w-10 text-right">{ajusteScale.toFixed(2)}x</span>
+                        <span className="text-white/80 text-xs font-semibold w-10 text-right">{ajusteScale.toFixed(2)}x</span>
                       </div>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => { setAjustePosX(50); setAjustePosY(50); setAjusteScale(1.0); }}
                           className="flex-1 py-2 text-xs font-bold text-white/60 hover:text-white border border-white/10 rounded-xl transition-colors">Restablecer</button>
                         <button type="button" onClick={() => setIsAjusteOpen(false)}
-                          className="flex-1 py-2 text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl transition-colors">✓ Guardar ajuste</button>
+                          className="flex-1 py-2 text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl transition-colors">✓ Guardar ajuste</button>
                       </div>
                     </div>
                   </div>
@@ -209,7 +209,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                 </label>
                 <span className="text-sm font-bold text-slate-700">Visible en carrusel p&#250;blico</span>
               </div>
-              <button type="submit" disabled={uploadingFoto} className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs mt-2 disabled:opacity-60 flex items-center justify-center gap-2">
+              <button type="submit" disabled={uploadingFoto} className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow-md hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs mt-2 disabled:opacity-60 flex items-center justify-center gap-2">
                 {uploadingFoto ? <><Loader2 size={16} className="animate-spin" /> Subiendo foto...</> : <><Sparkles size={16} /> {editingHistoria ? 'Guardar Cambios' : 'Crear Historia'}</>}
               </button>
             </form>
@@ -237,7 +237,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
           <div className="flex flex-col md:flex-row h-full overflow-hidden">
             {/* Lista de colores */}
             <div className="flex-1 border-r border-slate-100 overflow-y-auto p-6 bg-slate-50/30 min-h-[300px]">
-              <h4 className="text-[13px] font-black text-slate-400 uppercase tracking-widest mb-4">Colores Existentes</h4>
+              <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Colores Existentes</h4>
               <div className="space-y-2">
                 {coloresCorporativos.map(c => (
                   <div key={c.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
@@ -266,12 +266,12 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
 
             {/* Formulario */}
             <div className="w-full md:w-72 p-6 overflow-y-auto">
-              <h4 className="text-[13px] font-black text-slate-400 uppercase tracking-widest mb-4">
+              <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
                 {editingColor ? 'Editar Color' : 'Añadir Nuevo Color'}
               </h4>
               <form onSubmit={handleSaveColor} className="space-y-4">
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre (ej. Esmeralda)</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Nombre (ej. Esmeralda)</label>
                   <input
                     required
                     value={colorFormNombre}
@@ -280,7 +280,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Color Hexadecimal</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Color Hexadecimal</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
@@ -299,7 +299,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Clase CSS (Tailwind) Opcional</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Clase CSS (Tailwind) Opcional</label>
                   <input
                     value={colorFormClaseCss}
                     onChange={e => setColorFormClaseCss(e.target.value)}
@@ -309,11 +309,11 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                 </div>
                 <div className="pt-4 border-t border-slate-100 flex items-center gap-2">
                   {editingColor && (
-                    <button type="button" onClick={() => openColorModal(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-sm">
+                    <button type="button" onClick={() => openColorModal(null)} className="flex-1 py-2.5 rounded-xl font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-sm">
                       Cancelar
                     </button>
                   )}
-                  <button type="submit" className="flex-1 py-2.5 rounded-xl font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all text-sm flex items-center justify-center gap-2">
+                  <button type="submit" className="flex-1 py-2.5 rounded-xl font-semibold bg-emerald-600 text-white shadow-md shadow-emerald-100/50 hover:bg-emerald-700 transition-all text-sm flex items-center justify-center gap-2">
                     <Save size={16} /> {editingColor ? 'Actualizar' : 'Añadir'}
                   </button>
                 </div>
@@ -335,17 +335,17 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Testimonios del carrusel p&#250;blico</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setIsColorManagerOpen(true)} className="bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm">
+              <button onClick={() => setIsColorManagerOpen(true)} className="bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm">
                 <Palette size={18} className="text-emerald-500" /> Gestionar Colores
               </button>
-              <button onClick={() => openHistoriaModal(null)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200">
+              <button onClick={() => openHistoriaModal(null)} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50">
                 <Plus size={18} /> Nueva Historia
               </button>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 text-slate-500 text-[13px] font-black uppercase tracking-widest border-b border-slate-100">
+              <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-left">Previa</th>
                   <th className="px-6 py-4 text-left">Alumno</th>
@@ -375,7 +375,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                         <p className="text-xs text-slate-400 mt-0.5 max-w-[200px] truncate">{h.narracion}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={'px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-tight border ' + (h.programa === 'Profesional' ? 'bg-purple-50 text-purple-600 border-purple-100' : h.programa === 'Kids' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-amber-50 text-amber-600 border-amber-100')}>
+                        <span className={'px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border ' + (h.programa === 'Profesional' ? 'bg-purple-50 text-purple-600 border-purple-100' : h.programa === 'Kids' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-amber-50 text-amber-600 border-amber-100')}>
                           {h.programa}
                         </span>
                       </td>
@@ -388,7 +388,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                           </div>
                         ) : <span className="text-slate-300 text-xs">&mdash;</span>}
                       </td>
-                      <td className="px-6 py-4 text-center font-black text-slate-700">{h.orden}</td>
+                      <td className="px-6 py-4 text-center font-semibold text-slate-700">{h.orden}</td>
                       <td className="px-6 py-4 text-center">
                         <button onClick={() => handleToggleHistoriaActiva(h)} className={'relative inline-flex h-6 w-11 items-center rounded-full transition-colors ' + (h.activo ? 'bg-emerald-500' : 'bg-slate-200')}>
                           <span className={'inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ' + (h.activo ? 'translate-x-6' : 'translate-x-1')} />

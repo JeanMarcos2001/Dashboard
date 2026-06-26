@@ -158,7 +158,7 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
                 <ChevronLeft size={20} className="text-slate-600 rotate-180" />
               </button>
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs font-black text-slate-400 uppercase">
+            <div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs font-semibold text-slate-400 uppercase">
               <div>Do</div><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sa</div>
             </div>
             <div className="grid grid-cols-7 gap-1 place-items-center">
@@ -197,11 +197,11 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end gap-3">
-          <button onClick={() => setIsRescheduleModalOpen(false)} className="px-5 py-2.5 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+          <button onClick={() => setIsRescheduleModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-slate-500 hover:bg-slate-100 transition-all text-sm">Cancelar</button>
           <button
             onClick={handleRescheduleConfirm}
             disabled={!selectedDate || !selectedTime}
-            className="px-5 py-2.5 rounded-2xl font-black bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="px-4 py-2 rounded-xl font-semibold bg-emerald-600 text-white shadow-md shadow-emerald-100/50 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
           >
             Confirmar Cambio
           </button>
@@ -218,7 +218,7 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
             <h3 className="text-xl font-bold text-slate-800">Sedes y Sucursales</h3>
             <p className="text-sm text-slate-500 mt-1">Gestiona los locales y sus mensajes predeterminados</p>
           </div>
-          <button onClick={openMensajesGestor} className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-100 transition-colors shadow-sm">
+          <button onClick={openMensajesGestor} className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-100 transition-all shadow-sm">
             <Sparkles size={18} /> Gestionar Mensajes WhatsApp
           </button>
         </div>
@@ -226,7 +226,7 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map(filial => (
             <div key={filial.id} className="glass-card rounded-3xl p-6 border border-slate-200 relative overflow-hidden group flex flex-col h-full">
-              <div className={`absolute top-0 right-0 px-4 py-1 rounded-bl-2xl text-[13px] font-black uppercase tracking-widest ${filial.activo ? 'bg-emerald-500 text-white' : 'bg-slate-400 text-white'}`}>
+              <div className={`absolute top-0 right-0 px-3 py-0.5 rounded-bl-xl text-xs font-semibold uppercase tracking-wider ${filial.activo ? 'bg-emerald-500 text-white' : 'bg-slate-400 text-white'}`}>
                 {filial.activo ? 'Activa' : 'Inactiva'}
               </div>
 
@@ -243,7 +243,7 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
                 <div className="flex gap-2">
                   <Navigation size={14} className="text-slate-400 mt-1 flex-shrink-0" />
                   <div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-wider leading-none mb-1">Dirección</p>
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider leading-none mb-1">Dirección</p>
                     <p className="text-sm text-slate-700 font-medium">{filial.direccion}</p>
                     {filial.referencia && <p className="text-[14px] text-slate-400 font-medium italic">Ref: {filial.referencia}</p>}
                   </div>
@@ -251,13 +251,13 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Celular</p>
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Celular</p>
                     <p className="text-sm text-slate-700 font-bold flex items-center gap-1">
                       <Phone size={12} className="text-emerald-500" /> {filial.telefono_movil}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Tel. Fijo</p>
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Tel. Fijo</p>
                     <p className="text-sm text-slate-700 font-bold">{filial.telefono_fijo || 'N/A'}</p>
                   </div>
                 </div>
@@ -297,7 +297,7 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
       <Modal isOpen={isMensajesModalOpen} onClose={() => setIsMensajesModalOpen(false)} title="Mensajes de WhatsApp">
         <div className="flex justify-between items-center mb-6">
           <p className="text-sm text-slate-500">Plantillas para el botón de contacto web.</p>
-          <button onClick={openNewMensaje} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-200">
+          <button onClick={openNewMensaje} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50">
             <Plus size={16} /> Crear Mensaje
           </button>
         </div>
@@ -330,17 +330,17 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
       <Modal isOpen={isEditMensajeOpen} onClose={() => setIsEditMensajeOpen(false)} title={editingMensaje ? "Editar Mensaje WhatsApp" : "Nuevo Mensaje WhatsApp"}>
         <form onSubmit={handleSaveMensaje} className="space-y-5">
           <div>
-            <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Título / Indicador</label>
+            <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Título / Indicador</label>
             <input type="text" name="titulo" defaultValue={editingMensaje?.titulo} required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="Ej. Promoción Chiclayo" />
           </div>
           <div>
-            <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Contenido del Mensaje</label>
+            <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Contenido del Mensaje</label>
             <textarea name="contenido" defaultValue={editingMensaje?.contenido} required rows={3} className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm text-sm" placeholder="Hola, deseo información sobre..." />
           </div>
 
           <div>
             <div className="flex justify-between items-end mb-2">
-              <label className="block text-[13px] font-black text-slate-400 uppercase tracking-widest">Asignar Filiales</label>
+              <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Asignar Filiales</label>
               {availableFiliales.length > 0 && (
                 <button type="button" onClick={selectAllFilialesMensaje} className="text-[13px] font-bold text-emerald-600 hover:underline">Seleccionar Todas</button>
               )}
@@ -406,7 +406,7 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
             <p className="text-[13px] text-slate-400 mt-2 text-center">Arrastra las filiales de un lado a otro para asignarlas.</p>
           </div>
 
-          <button type="submit" className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs btn-glow mt-2">
+          <button type="submit" className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs shadow-md shadow-emerald-100/50 mt-2">
             Guardar Mensaje
           </button>
         </form>
@@ -414,7 +414,7 @@ export const FilialesView: React.FC<FilialesViewProps> = ({
         {/* Custom Drag Overlay */}
         {draggingItem && (
           <div
-            className="fixed pointer-events-none z-[9999] p-2 bg-white rounded-xl border-2 border-emerald-500 shadow-2xl text-xs font-black text-slate-800 flex items-center gap-2 transform -translate-x-1/2 -translate-y-1/2 scale-105"
+            className="fixed pointer-events-none z-[9999] p-2 bg-white rounded-lg border border-emerald-500 shadow-xl text-xs font-semibold text-slate-800 flex items-center gap-2 transform -translate-x-1/2 -translate-y-1/2 scale-105"
             style={{ left: dragPos.x, top: dragPos.y }}
           >
             <GripVertical size={14} className="text-emerald-500" />
