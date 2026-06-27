@@ -480,11 +480,13 @@ export const CitasView: React.FC<CitasViewProps> = ({
             const isSelected = appointmentDate === dateStr;
             const isToday = d.date.getTime() === today.getTime();
             const isPast = d.date < today;
+            const isSunday = d.date.getDay() === 0;
+            const isDisabled = isPast || isSunday;
 
             let btnClass = "w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all ";
             if (isSelected) {
               btnClass += "bg-indigo-600 text-white shadow-md shadow-indigo-100 hover:bg-indigo-700 scale-105 cursor-pointer z-10";
-            } else if (isPast) {
+            } else if (isDisabled) {
               btnClass += "text-slate-300 pointer-events-none opacity-40";
             } else if (!d.isCurrentMonth) {
               btnClass += "text-slate-400 hover:bg-slate-200/50 cursor-pointer";
@@ -504,7 +506,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   setAppointmentDate(dateStr);
                   setAppointmentTime('');
                 }}
-                disabled={isPast}
+                disabled={isDisabled}
                 className={btnClass}
               >
                 {d.dayNum}
@@ -543,7 +545,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
     return (
       <div className="space-y-2 mt-1 select-none">
-        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+        <label className="block text-sm font-medium text-slate-600 mb-1">
           Horas disponibles para el {friendlyDateStr}
         </label>
         {availableHours.length === 0 ? (
@@ -1030,15 +1032,17 @@ export const CitasView: React.FC<CitasViewProps> = ({
     for (let d = 1; d <= days; d++) {
       const date = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), d);
       const isPast = date < today;
+      const isSunday = date.getDay() === 0;
+      const isDisabled = isPast || isSunday;
       const isSelected = selectedDate?.getTime() === date.getTime();
 
       calendarDays.push(
         <button
           key={d}
-          disabled={isPast}
+          disabled={isDisabled}
           onClick={() => { setSelectedDate(date); setSelectedTime(null); }}
           className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-all
-                    ${isPast ? 'text-slate-300 cursor-not-allowed' :
+                    ${isDisabled ? 'text-slate-300 cursor-not-allowed opacity-40' :
               isSelected ? 'bg-emerald-700 text-white shadow-md scale-105' : 'hover:bg-emerald-50 text-slate-700'}
                 `}
         >
@@ -1540,7 +1544,85 @@ export const CitasView: React.FC<CitasViewProps> = ({
           resetAppointmentFields();
         }}
         title={isConfirmingSave ? 'Confirmar Registro' : (editingItem ? `Editar ${editingItem.nombre || 'Registro'}` : (schedulingFlow === 'existing' ? 'Agendar Cita' : 'Agendar Entrevista'))}
-        maxWidth={schedulingFlow === 'new' && !isConfirmingSave ? "max-w-[820px]" : "max-w-lg"}
+        maxWidth={!isConfirmingSave ? "max-w-[820px]" : "max-w-lg"}
+        footer={
+          isConfirmingSave && pendingBookingPayload ? (
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => setIsConfirmingSave(false)}
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all"
+              >
+                Seguir Editando
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAddAppointment(pendingBookingPayload)}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-100/50"
+              >
+                Confirmar y Guardar
+              </button>
+            </div>
+          ) : schedulingFlow === 'existing' ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (!selectedAlumnoId || !appointmentDate || !appointmentTime) {
+                  alert("Por favor, complete todos los campos requeridos.");
+                  return;
+                }
+                setPendingBookingPayload({
+                  flow: 'existing',
+                  filialId: selectedFilialId,
+                  alumnoId: selectedAlumnoId,
+                  fecha_cita: appointmentDate,
+                  hora_cita: appointmentTime,
+                  observaciones: appointmentObservaciones
+                });
+                setIsConfirmingSave(true);
+              }}
+              className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs shadow-md shadow-emerald-100/50 cursor-pointer"
+            >
+              Agendar Cita
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (!selectedFilialId || !appointmentDate || !appointmentTime || !apoderadoTelefono) {
+                  alert("Por favor, complete todos los campos de contacto, filial, fecha y hora.");
+                  return;
+                }
+                if (newStudentType === 'dependent' && !apoderadoNombre) {
+                  alert("Por favor, complete el nombre del apoderado.");
+                  return;
+                }
+                const hasEmptyStudent = newStudents.some(st => !st.nombre_completo || !st.edad);
+                if (hasEmptyStudent) {
+                  alert("Por favor, complete los datos de todos los alumnos.");
+                  return;
+                }
+
+                setPendingBookingPayload({
+                  flow: 'new',
+                  newStudentType,
+                  apoderadoNombre,
+                  apoderadoTelefono,
+                  apoderadoEmail,
+                  newStudents,
+                  filialId: selectedFilialId,
+                  fecha_cita: appointmentDate,
+                  hora_cita: appointmentTime,
+                  observaciones: ''
+                });
+                setIsConfirmingSave(true);
+              }}
+              className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs shadow-md shadow-emerald-100/50 cursor-pointer"
+            >
+              Agendar Entrevista
+            </button>
+          )
+        }
       >
         {isConfirmingSave && pendingBookingPayload ? (
           /* Pantalla de Confirmación */
@@ -1636,23 +1718,6 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 </div>
               )}
             </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setIsConfirmingSave(false)}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all"
-              >
-                Seguir Editando
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddAppointment(pendingBookingPayload)}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-100/50"
-              >
-                Confirmar y Guardar
-              </button>
-            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -1660,7 +1725,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
               /* Flow A: Alumno Existente */
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Sede / Filial</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Sede / filial</label>
                   <select
                     value={selectedFilialId || ''}
                     onChange={(e) => {
@@ -1668,7 +1733,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                       setSelectedAlumnoId(null);
                       setSearchStudentTerm('');
                     }}
-                    className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm transition-all"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm transition-all"
                   >
                     <option value="" disabled>Seleccione una filial...</option>
                     {filiales.length > 0 ? filiales.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>) : <option disabled>No hay filiales activas</option>}
@@ -1676,160 +1741,120 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 </div>
 
                 {selectedFilialId ? (
-                  <div className="space-y-4 animate-in fade-in duration-200">
-                    {/* Buscador predictivo */}
-                    <div className="relative">
-                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Buscar Alumno</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-200">
+                    {/* Columna Izquierda: Datos del Alumno */}
+                    <div className="space-y-4">
+                      {/* Buscador predictivo */}
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input
-                          type="text"
-                          placeholder="Escriba el nombre del alumno..."
-                          className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
-                          value={searchStudentTerm}
-                          onChange={(e) => {
-                            setSearchStudentTerm(e.target.value);
-                            setIsStudentDropdownOpen(true);
-                            if (selectedAlumnoId) setSelectedAlumnoId(null);
-                          }}
-                          onFocus={() => setIsStudentDropdownOpen(true)}
-                        />
-                      </div>
-
-                      {/* Dropdown predictivo de alumnos */}
-                      {isStudentDropdownOpen && searchStudentTerm.trim() !== '' && (
-                        <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100">
-                          {matchedAlumnos.length > 0 ? (
-                            matchedAlumnos.map(al => (
-                              <button
-                                key={al.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedAlumnoId(al.id);
-                                  setSearchStudentTerm(al.nombre_completo);
-                                  setIsStudentDropdownOpen(false);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-sm text-slate-700 transition-colors flex items-center justify-between"
-                              >
-                                <span>{al.nombre_completo}</span>
-                                <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
-                                  {al.id_apoderado ? 'Con Apoderado' : 'Independiente'}
-                                </span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="px-4 py-3 text-center text-slate-400 text-xs font-bold italic">
-                              No se encontraron alumnos disponibles
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Panel de Información del Alumno Seleccionado */}
-                    {selectedAlumnoId && (
-                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 shadow-inner space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Tipo de Alumno:</span>
-                          {(() => {
-                            const al = alumnos.find(a => a.id === selectedAlumnoId);
-                            const isInd = al ? !al.id_apoderado : true;
-                            return (
-                              <>
-                                {isInd ? (
-                                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase tracking-wider">
-                                    Independiente
-                                  </span>
-                                ) : (
-                                  <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded uppercase tracking-wider">
-                                    Con Apoderado
-                                  </span>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                        {(() => {
-                          const al = alumnos.find(a => a.id === selectedAlumnoId);
-                          const apo = al && al.id_apoderado ? apoderados.find(ap => ap.id === al.id_apoderado) : null;
-                          if (apo) {
-                            return (
-                              <div className="text-xs font-bold text-slate-600 space-y-1">
-                                <p>• Apoderado: <span className="font-bold text-slate-700">{apo.nombre_completo}</span></p>
-                                <p>• Teléfono Apoderado: <span className="font-bold text-slate-700">{apo.telefono}</span></p>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                    )}
-
-                    {/* Fecha y Hora de la cita */}
-                    <div className={preselectedDate ? "grid grid-cols-1" : "grid grid-cols-2 gap-4"}>
-                      {!preselectedDate && (
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Fecha</label>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Buscar alumno</label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                           <input
-                            type="date"
-                            required
-                            className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
-                            value={appointmentDate}
-                            onChange={(e) => setAppointmentDate(e.target.value)}
+                            type="text"
+                            placeholder="Escriba el nombre del alumno..."
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                            value={searchStudentTerm}
+                            onChange={(e) => {
+                              setSearchStudentTerm(e.target.value);
+                              setIsStudentDropdownOpen(true);
+                              if (selectedAlumnoId) setSelectedAlumnoId(null);
+                            }}
+                            onFocus={() => setIsStudentDropdownOpen(true)}
                           />
                         </div>
+
+                        {/* Dropdown predictivo de alumnos */}
+                        {isStudentDropdownOpen && searchStudentTerm.trim() !== '' && (
+                          <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100">
+                            {matchedAlumnos.length > 0 ? (
+                              matchedAlumnos.map(al => (
+                                <button
+                                  key={al.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedAlumnoId(al.id);
+                                    setSearchStudentTerm(al.nombre_completo);
+                                    setIsStudentDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 font-bold text-sm text-slate-700 transition-colors flex items-center justify-between"
+                                >
+                                  <span>{al.nombre_completo}</span>
+                                  <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
+                                    {al.id_apoderado ? 'Con Apoderado' : 'Independiente'}
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-center text-slate-400 text-xs font-bold italic">
+                                No se encontraron alumnos disponibles
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Panel de Información del Alumno Seleccionado */}
+                      {selectedAlumnoId && (
+                        <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 shadow-inner space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-600">Tipo de alumno:</span>
+                            {(() => {
+                              const al = alumnos.find(a => a.id === selectedAlumnoId);
+                              const isInd = al ? !al.id_apoderado : true;
+                              return (
+                                <>
+                                  {isInd ? (
+                                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase tracking-wider">
+                                      Independiente
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded uppercase tracking-wider">
+                                      Con Apoderado
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                          {(() => {
+                            const al = alumnos.find(a => a.id === selectedAlumnoId);
+                            const apo = al && al.id_apoderado ? apoderados.find(ap => ap.id === al.id_apoderado) : null;
+                            if (apo) {
+                              return (
+                                <div className="text-xs font-bold text-slate-600 space-y-1">
+                                  <p>• Apoderado: <span className="font-bold text-slate-700">{apo.nombre_completo}</span></p>
+                                  <p>• Teléfono Apoderado: <span className="font-bold text-slate-700">{apo.telefono}</span></p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       )}
+
+                      {/* Observaciones */}
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Hora</label>
-                        <select
-                          required
-                          className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
-                          value={appointmentTime}
-                          onChange={(e) => setAppointmentTime(e.target.value)}
-                        >
-                          <option value="" disabled>Seleccione hora...</option>
-                          {getAvailableHoursForDateStr(appointmentDate).map((h) => (
-                            <option key={h} value={h}>
-                              {formatHour12(h)}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Observaciones / notas</label>
+                        <textarea
+                          placeholder="Ingrese observaciones o anotaciones sobre la cita (ej. dificultad del alumno, comentarios)..."
+                          rows={3}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700 shadow-sm text-sm"
+                          value={appointmentObservaciones}
+                          onChange={(e) => setAppointmentObservaciones(e.target.value)}
+                        />
                       </div>
                     </div>
 
-                    {/* Observaciones */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Observaciones / Notas</label>
-                      <textarea
-                        placeholder="Ingrese observaciones o anotaciones sobre la cita (ej. dificultad del alumno, comentarios)..."
-                        rows={3}
-                        className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700 shadow-sm text-sm"
-                        value={appointmentObservaciones}
-                        onChange={(e) => setAppointmentObservaciones(e.target.value)}
-                      />
+                    {/* Columna Derecha: Calendario y Horas */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Fecha de la cita</label>
+                        {renderMiniFormCalendar()}
+                      </div>
+                      <div>
+                        {renderHorizontalHourRibbon()}
+                      </div>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!selectedAlumnoId || !appointmentDate || !appointmentTime) {
-                          alert("Por favor, complete todos los campos requeridos.");
-                          return;
-                        }
-                        setPendingBookingPayload({
-                          flow: 'existing',
-                          filialId: selectedFilialId,
-                          alumnoId: selectedAlumnoId,
-                          fecha_cita: appointmentDate,
-                          hora_cita: appointmentTime,
-                          observaciones: appointmentObservaciones
-                        });
-                        setIsConfirmingSave(true);
-                      }}
-                      className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs shadow-md shadow-emerald-100/50 mt-4 cursor-pointer"
-                    >
-                      Agendar Cita
-                    </button>
                   </div>
                 ) : (
                   <div className="text-center text-slate-400 py-10 font-bold text-xs uppercase tracking-wider border border-dashed border-slate-200 rounded-3xl">
@@ -1844,7 +1869,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 <div className="space-y-4">
                   {/* Tipo de alumno nuevo */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Tipo de Alumno Nuevo</label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Tipo de alumno nuevo</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -1891,76 +1916,74 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   </div>
 
                   {/* Datos del Apoderado - sólo si es Dependiente */}
-                  {newStudentType === 'dependent' ? (
-                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3 shadow-inner">
-                      <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-200/50 pb-1.5">Datos del Apoderado (Contacto Principal)</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre Completo</label>
-                          <input
-                            type="text"
-                            required
-                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
-                            placeholder="Ej. Maria Garcia"
-                            value={apoderadoNombre}
-                            onChange={(e) => setApoderadoNombre(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Celular de Contacto</label>
-                          <input
-                            type="text"
-                            required
-                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
-                            placeholder="Ej. 987654321"
-                            value={apoderadoTelefono}
-                            onChange={(e) => setApoderadoTelefono(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Correo Electrónico</label>
-                          <input
-                            type="email"
-                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
-                            placeholder="Ej. maria@ejemplo.com"
-                            value={apoderadoEmail}
-                            onChange={(e) => setApoderadoEmail(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Celular y Correo de Contacto directo si es independiente */
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {newStudentType === 'dependent' && (
+                    <>
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Celular de Contacto</label>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Nombre completo</label>
                         <input
                           type="text"
                           required
-                          className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                          placeholder="Ej. María García"
+                          value={apoderadoNombre}
+                          onChange={(e) => setApoderadoNombre(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Número de teléfono</label>
+                        <input
+                          type="text"
+                          required
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                          placeholder="Ej. 987654321"
+                          value={apoderadoTelefono}
+                          onChange={(e) => setApoderadoTelefono(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Correo electrónico</label>
+                        <input
+                          type="email"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
+                          placeholder="Ej. maria@ejemplo.com"
+                          value={apoderadoEmail}
+                          onChange={(e) => setApoderadoEmail(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {newStudentType === 'independent' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Número de teléfono</label>
+                        <input
+                          type="text"
+                          required
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
                           placeholder="Ej. 999888777"
                           value={apoderadoTelefono}
                           onChange={(e) => setApoderadoTelefono(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Correo Electrónico</label>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Correo electrónico</label>
                         <input
                           type="email"
-                          className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
                           placeholder="Ej. correo@ejemplo.com"
                           value={apoderadoEmail}
                           onChange={(e) => setApoderadoEmail(e.target.value)}
                         />
                       </div>
-                    </div>
+                    </>
                   )}
 
                   {/* Campos dinámicos de los Alumnos */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        {newStudentType === 'dependent' ? 'Datos de los Alumnos (Hijos)' : 'Datos del Alumno'}
+                      <label className="block text-sm font-medium text-slate-600">
+                        {newStudentType === 'dependent' ? 'Datos de los alumnos (hijos)' : 'Datos del alumno'}
                       </label>
                       {newStudentType === 'dependent' && (
                         <button
@@ -1977,7 +2000,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                       {newStudents.map((st, idx) => (
                         <div key={idx} className="flex gap-2 items-end p-3.5 bg-slate-50 border border-slate-100 rounded-xl relative group">
                           <div className="flex-1 space-y-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</label>
+                            <label className="block text-sm font-medium text-slate-600 mb-1">Nombre completo</label>
                             <input
                               type="text"
                               required
@@ -1992,7 +2015,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                             />
                           </div>
                           <div className="w-20 space-y-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Edad</label>
+                            <label className="block text-sm font-medium text-slate-600 mb-1">Edad</label>
                             <input
                               type="number"
                               required
@@ -2023,11 +2046,11 @@ export const CitasView: React.FC<CitasViewProps> = ({
 
                   {/* Sede / Filial */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Sede / Filial</label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Sede / filial</label>
                     <select
                       value={selectedFilialId || ''}
                       onChange={(e) => setSelectedFilialId(Number(e.target.value) || null)}
-                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-slate-800 shadow-sm"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800 shadow-sm"
                     >
                       <option value="" disabled>Seleccione...</option>
                       {filiales.length > 0 ? filiales.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>) : <option disabled>No hay filiales activas</option>}
@@ -2038,51 +2061,12 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 {/* Columna Derecha: Calendario y Cinta Horaria */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Fecha de la Entrevista</label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Fecha de la entrevista</label>
                     {renderMiniFormCalendar()}
                   </div>
                   <div>
                     {renderHorizontalHourRibbon()}
                   </div>
-                </div>
-
-                {/* Botón Guardar - col-span-2 en pantallas grandes */}
-                <div className="md:col-span-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedFilialId || !appointmentDate || !appointmentTime || !apoderadoTelefono) {
-                        alert("Por favor, complete todos los campos de contacto, filial, fecha y hora.");
-                        return;
-                      }
-                      if (newStudentType === 'dependent' && !apoderadoNombre) {
-                        alert("Por favor, complete el nombre del apoderado.");
-                        return;
-                      }
-                      const hasEmptyStudent = newStudents.some(st => !st.nombre_completo || !st.edad);
-                      if (hasEmptyStudent) {
-                        alert("Por favor, complete los datos de todos los alumnos.");
-                        return;
-                      }
-
-                      setPendingBookingPayload({
-                        flow: 'new',
-                        newStudentType,
-                        apoderadoNombre,
-                        apoderadoTelefono,
-                        apoderadoEmail,
-                        newStudents,
-                        filialId: selectedFilialId,
-                        fecha_cita: appointmentDate,
-                        hora_cita: appointmentTime,
-                        observaciones: ''
-                      });
-                      setIsConfirmingSave(true);
-                    }}
-                    className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs shadow-md shadow-emerald-100/50 cursor-pointer"
-                  >
-                    Agendar Entrevista
-                  </button>
                 </div>
               </div>
             )}

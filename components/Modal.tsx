@@ -6,10 +6,11 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   maxWidth?: string;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-lg" }) => {
   if (!isOpen) return null;
   const titleSizeClass = title.includes('Agendar') ? 'text-xl font-bold' : 'text-lg font-semibold';
   return (
@@ -21,7 +22,12 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             <X size={20} className="text-slate-500" />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
+        {footer && (
+          <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex-shrink-0">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

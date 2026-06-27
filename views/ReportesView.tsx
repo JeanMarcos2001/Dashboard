@@ -329,7 +329,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
               type="date"
               value={dateStart}
               onChange={(e) => setDateStart(e.target.value)}
-              className="p-3 rounded-2xl border border-slate-200 bg-white font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
+              className="p-3 rounded-2xl border border-slate-200 bg-white font-medium text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
             />
           </div>
 
@@ -342,7 +342,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
               type="date"
               value={dateEnd}
               onChange={(e) => setDateEnd(e.target.value)}
-              className="p-3 rounded-2xl border border-slate-200 bg-white font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
+              className="p-3 rounded-2xl border border-slate-200 bg-white font-medium text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
             />
           </div>
 
