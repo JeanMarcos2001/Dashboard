@@ -219,6 +219,7 @@ const App: React.FC = () => {
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [alumnoFormTipo, setAlumnoFormTipo] = useState<'dependiente' | 'independiente'>('dependiente');
 
   // Filter State
   const [filterDateMode, setFilterDateMode] = useState<'all' | 'specific' | 'range'>('all');
@@ -1957,6 +1958,7 @@ const App: React.FC = () => {
               setIsModalOpen(false);
               setEditingItem(null);
               resetAppointmentFields();
+              setAlumnoFormTipo('dependiente');
             }}
             title={editingItem ? `Editar ${editingItem.nombre || 'Registro'}` : (activeView === 'alumnos' ? 'Registrar Alumno' : activeView === 'apoderados' ? 'Registrar Apoderado' : 'Nueva Filial')}
             maxWidth="max-w-lg"
@@ -1975,15 +1977,29 @@ const App: React.FC = () => {
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tipo de Alumno</label>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-100 transition-all">
-                      <input type="radio" name="tipo_alumno" value="dependiente" defaultChecked className="text-blue-600" />
+                    <label className={`flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${alumnoFormTipo === 'dependiente' ? 'border-blue-500 bg-blue-100/50' : 'border-blue-200 bg-blue-50/50'}`}>
+                      <input
+                        type="radio"
+                        name="tipo_alumno"
+                        value="dependiente"
+                        checked={alumnoFormTipo === 'dependiente'}
+                        onChange={() => setAlumnoFormTipo('dependiente')}
+                        className="text-blue-600"
+                      />
                       <div>
                         <p className="font-bold text-slate-800 text-sm">Dependiente</p>
                         <p className="text-[13px] text-slate-400">Tiene apoderado</p>
                       </div>
                     </label>
-                    <label className="flex items-center gap-2 p-3 rounded-xl border-2 border-slate-200 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition-all">
-                      <input type="radio" name="tipo_alumno" value="independiente" className="text-emerald-600" />
+                    <label className={`flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${alumnoFormTipo === 'independiente' ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200 bg-white'}`}>
+                      <input
+                        type="radio"
+                        name="tipo_alumno"
+                        value="independiente"
+                        checked={alumnoFormTipo === 'independiente'}
+                        onChange={() => setAlumnoFormTipo('independiente')}
+                        className="text-emerald-600"
+                      />
                       <div>
                         <p className="font-bold text-slate-800 text-sm">Independiente</p>
                         <p className="text-[13px] text-slate-400">Contacto propio</p>
@@ -1991,28 +2007,41 @@ const App: React.FC = () => {
                     </label>
                   </div>
                 </div>
-                {/* Apoderado */}
-                <div id="apoderado-section">
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Apoderado <span className="text-blue-400">(solo si dependiente)</span></label>
-                  <select name="id_apoderado" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
-                    <option value="">Sin apoderado (independiente)</option>
-                    {apoderados.map(ap => <option key={ap.id} value={ap.id}>{ap.nombre_completo}</option>)}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Edad</label>
-                    <input type="number" name="edad" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Celular <span className="text-emerald-500">(si independiente)</span></label>
-                    <input type="text" name="telefono" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999000888" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Correo Electrónico <span className="text-emerald-500">(si independiente)</span></label>
-                  <input type="email" name="email" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="correo@ejemplo.com" />
-                </div>
+
+                {/* Apoderado - Solo si es dependiente */}
+                {alumnoFormTipo === 'dependiente' ? (
+                  <>
+                    <div id="apoderado-section">
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Apoderado</label>
+                      <select name="id_apoderado" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm">
+                        <option value="" disabled>Seleccione un apoderado...</option>
+                        {apoderados.map(ap => <option key={ap.id} value={ap.id}>{ap.nombre_completo}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Edad</label>
+                      <input type="number" name="edad" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Edad</label>
+                        <input type="number" name="edad" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Celular</label>
+                        <input type="text" name="telefono" required className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="999000888" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Correo Electrónico</label>
+                      <input type="email" name="email" className="w-full p-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 shadow-sm" placeholder="correo@ejemplo.com" />
+                    </div>
+                  </>
+                )}
+
                 <button type="submit" className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl shadow-md shadow-emerald-100/50 hover:bg-emerald-700 transition-all uppercase tracking-wider text-xs mt-4 btn-glow">
                   Guardar Alumno
                 </button>
