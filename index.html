@@ -8,12 +8,62 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <style>
+        /* REGLA DE DISEÑO: El tamaño mínimo de tipografía usable en toda la app es 8pt (11px). */
+        body, input, select, textarea, button {
+            font-family: 'Montserrat', sans-serif;
+        }
         body {
-            font-family: 'Darker Grotesque', sans-serif;
             background-color: #f8fafc;
+        }
+        /* Estilo global de placeholders para hacerlos más delgados y menos intrusivos */
+        input::placeholder, textarea::placeholder {
+            font-weight: 400 !important;
+            color: #94a3b8 !important; /* text-slate-400 */
+            opacity: 0.75 !important;
+        }
+        /* Estilo global de comboboxes (select) para mostrar las opciones visibles en letra regular */
+        select, select option {
+            font-weight: 400 !important;
+        }
+
+        @keyframes slideFromRight1 {
+            0% { transform: scale(0.99) translateX(30px); opacity: 0.85; filter: blur(2px); }
+            100% { transform: scale(1) translateX(0); opacity: 1; filter: blur(0); }
+        }
+        @keyframes slideFromRight2 {
+            0% { transform: scale(0.99) translateX(30px); opacity: 0.85; filter: blur(2px); }
+            100% { transform: scale(1) translateX(0); opacity: 1; filter: blur(0); }
+        }
+        @keyframes slideFromLeft1 {
+            0% { transform: scale(0.99) translateX(-30px); opacity: 0.85; filter: blur(2px); }
+            100% { transform: scale(1) translateX(0); opacity: 1; filter: blur(0); }
+        }
+        @keyframes slideFromLeft2 {
+            0% { transform: scale(0.99) translateX(-30px); opacity: 0.85; filter: blur(2px); }
+            100% { transform: scale(1) translateX(0); opacity: 1; filter: blur(0); }
+        }
+        .animate-slide-right-1 {
+            animation: slideFromRight1 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        .animate-slide-right-2 {
+            animation: slideFromRight2 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        .animate-slide-left-1 {
+            animation: slideFromLeft1 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        .animate-slide-left-2 {
+            animation: slideFromLeft2 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        /* Ocultar barra de desplazamiento para el efecto de cinta */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
 
         .glass-card {
