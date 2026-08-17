@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, CheckCircle2, Clock, ArrowUpRight, ChevronRight, Info } from 'lucide-react';
-import { Appointment, Alumno, Stats } from '../types';
+import { Appointment, Alumno, Stats, ActiveView } from '../types';
 import { StatCard } from '../components/StatCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { isAlumnoExistenteCita } from '../utils/appointments';
@@ -10,7 +10,7 @@ interface DashboardViewProps {
   stats: Stats;
   appointments: Appointment[];
   alumnos: Alumno[];
-  setActiveView: (view: 'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias' | 'carrusel02') => void;
+  setActiveView: (view: ActiveView) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ stats, appointments, alumnos, setActiveView }) => (

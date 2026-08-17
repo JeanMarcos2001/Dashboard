@@ -41,11 +41,15 @@ import {
   FileText,
   Settings,
   Mail,
-  BarChart3
+  BarChart3,
+  LogOut,
+  ShieldCheck,
+  UserCog,
+  Building2
 } from 'lucide-react';
 import {
   AppointmentStatus, Appointment, Alumno, Filial, Stats, Apoderado, MensajeWsp,
-  ColorCorporativo, Historia, Carrusel02Imagen
+  ColorCorporativo, Historia, Carrusel02Imagen, ActiveView
 } from './types';
 import { ConfirmAlert } from './components/ConfirmAlert';
 import { Modal } from './components/Modal';
@@ -60,6 +64,9 @@ import { FilialesView } from './views/FilialesView';
 import { HistoriasView } from './views/HistoriasView';
 import { CarruselView } from './views/CarruselView';
 import { ReportesView } from './views/ReportesView';
+import { LoginView } from './views/LoginView';
+import { UsuariosView } from './views/UsuariosView';
+import { useAuth } from './hooks/useAuth';
 
 // Importar servicios y constantes de configuración
 import { SUPABASE_URL } from './config/supabase';
@@ -73,7 +80,11 @@ import { getColoresCorporativos, createColorCorporativo, updateColorCorporativo,
 import { getCarruselImagenes, createCarruselImagen, deleteCarruselImagen, updateCarruselImagen, uploadCarruselFoto, removeCarruselFotos, getCarruselFotoPublicUrl } from './services/carrusel';
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'citas' | 'alumnos' | 'filiales' | 'apoderados' | 'historias' | 'carrusel02' | 'reportes'>('dashboard');
+  // ─── Auth ──────────────────────────────────────────────────────────────────
+  const { session, perfil, loadingAuth, signIn, signOut } = useAuth();
+  const esAdmin = perfil?.rol === 'administrador';
+
+  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [filiales, setFiliales] = useState<Filial[]>([]);
@@ -1441,12 +1452,20 @@ const App: React.FC = () => {
     );
   };
 
-  if (loading) {
+
+  // ─── Guard de autenticación ─────────────────────────────────────────────────
+  // Muestra loader mientras se verifica la sesión inicial
+  if (loadingAuth || loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc]">
         <Loader />
       </div>
     );
+  }
+
+  // Sin sesión → pantalla de login
+  if (!session || !perfil) {
+    return <LoginView onSignIn={signIn} />;
   }
 
   return (
@@ -1466,7 +1485,7 @@ const App: React.FC = () => {
         <div className="bg-white border border-slate-200/50 rounded-2xl p-4 mb-6 shadow-sm flex items-center justify-between gap-3 relative">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl border border-emerald-100/30">
-              <Users size={20} />
+              <GraduationCap size={20} />
             </div>
             <div>
               <h1 className="text-[15px] font-bold text-slate-800 tracking-tight leading-none mb-1">Dashboard</h1>
@@ -1534,7 +1553,22 @@ const App: React.FC = () => {
             <BarChart3 size={20} className={activeView === 'reportes' ? 'text-emerald-600' : 'text-slate-400'} /> Reportes
           </button>
 
-          {/* Opción desglosable: Gestión Web */}
+          {/* Usuarios — solo Administrador */}
+          {esAdmin && (
+            <button
+              onClick={() => { setActiveView('usuarios'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
+              className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all cursor-pointer ${
+                activeView === 'usuarios'
+                  ? 'bg-white shadow-[0_2px_6px_rgba(0,0,0,0.02)] border border-slate-200/40 text-emerald-700 font-semibold'
+                  : 'hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 border border-transparent'
+              }`}
+            >
+              <UserCog size={20} className={activeView === 'usuarios' ? 'text-emerald-600' : 'text-slate-400'} /> Usuarios
+            </button>
+          )}
+
+          {/* Opción desglosable: Gestión Web — solo Administrador */}
+          {esAdmin && (
           <div className="pt-1">
             <button
               onClick={() => setIsWebManagementOpen(!isWebManagementOpen)}
@@ -1591,15 +1625,45 @@ const App: React.FC = () => {
               </button>
             </div>
           </div>
+          )}
         </nav>
 
-        {/* Botón de Configuración en la parte inferior de la barra de menú */}
-        <div className="pt-4 border-t border-slate-200/60 mt-auto">
+        {/* Sección inferior: info de usuario y cerrar sesión */}
+        <div className="pt-4 border-t border-slate-200/60 mt-auto space-y-1">
+          {/* Datos del usuario actual */}
+          <div className="px-2.5 py-2 rounded-xl bg-slate-100/60">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                esAdmin ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'
+              }`}>
+                {perfil.nombre_display?.[0]?.toUpperCase() ?? 'U'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-slate-700 truncate leading-none mb-0.5">{perfil.nombre_display}</p>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${
+                  esAdmin ? 'text-violet-600' : 'text-emerald-600'
+                }`}>
+                  {esAdmin ? <ShieldCheck size={10} /> : <Building2 size={10} />}
+                  {esAdmin ? 'Administrador' : 'Sede'}
+                </span>
+              </div>
+            </div>
+          </div>
+          {/* Configuración (solo admin) */}
+          {esAdmin && (
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 cursor-pointer border border-transparent"
+            >
+              <Settings size={20} className="text-slate-400" /> Configuración
+            </button>
+          )}
+          {/* Cerrar sesión */}
           <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all hover:bg-slate-200/30 text-slate-500 hover:text-slate-800 cursor-pointer border border-transparent"
+            onClick={() => signOut()}
+            className="flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all hover:bg-rose-50 text-slate-500 hover:text-rose-700 cursor-pointer border border-transparent"
           >
-            <Settings size={20} className="text-slate-400" /> Configuración
+            <LogOut size={20} className="text-slate-400" /> Cerrar sesión
           </button>
         </div>
 
@@ -1631,7 +1695,12 @@ const App: React.FC = () => {
               <Menu size={20} />
             </button>
             <div>
-              <h2 className="text-2xl font-bold text-slate-800 tracking-tight capitalize">{activeView === 'citas' ? 'Agenda diaria' : activeView}</h2>
+              <h2 className="text-2xl font-bold text-slate-800 tracking-tight capitalize">{
+                activeView === 'citas' ? 'Agenda diaria' :
+                activeView === 'carrusel02' ? 'Carrusel' :
+                activeView === 'usuarios' ? 'Gestión de Usuarios' :
+                activeView
+              }</h2>
               <p className="text-slate-500 font-bold italic text-sm">Control centralizado de operaciones</p>
             </div>
             <button
@@ -1775,6 +1844,7 @@ const App: React.FC = () => {
             setEditingItem={setEditingItem}
             setIsModalOpen={setIsModalOpen}
             handleDeleteAlumno={handleDeleteAlumno}
+            esAdmin={esAdmin}
           />
         )}
 
@@ -1785,7 +1855,12 @@ const App: React.FC = () => {
             setEditingItem={setEditingItem}
             setIsModalOpen={setIsModalOpen}
             handleDeleteApoderado={handleDeleteApoderado}
+            esAdmin={esAdmin}
           />
+        )}
+
+        {activeView === 'usuarios' && esAdmin && (
+          <UsuariosView filiales={filiales} />
         )}
 
         {activeView === 'filiales' && (

@@ -8,6 +8,7 @@ interface ApoderadosViewProps {
   setEditingItem: (item: any) => void;
   setIsModalOpen: (open: boolean) => void;
   handleDeleteApoderado: (id: number) => void;
+  esAdmin: boolean;
 }
 
 export const ApoderadosView: React.FC<ApoderadosViewProps> = ({
@@ -16,6 +17,7 @@ export const ApoderadosView: React.FC<ApoderadosViewProps> = ({
   setEditingItem,
   setIsModalOpen,
   handleDeleteApoderado,
+  esAdmin,
 }) => {
   const sorted = [...apoderados].sort((a, b) => {
     const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
@@ -29,9 +31,11 @@ export const ApoderadosView: React.FC<ApoderadosViewProps> = ({
     <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
       <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
         <h3 className="text-xl font-bold text-slate-800">Directorio de Apoderados</h3>
-        <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50">
-          <Plus size={18} /> Nuevo Apoderado
-        </button>
+        {esAdmin && (
+          <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50">
+            <Plus size={18} /> Nuevo Apoderado
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -40,7 +44,7 @@ export const ApoderadosView: React.FC<ApoderadosViewProps> = ({
               <th className="px-6 py-4 text-left">Nombre Completo</th>
               <th className="px-6 py-4 text-left">Contacto</th>
               <th className="px-6 py-4 text-left">Registro</th>
-              <th className="px-6 py-4 text-right">Acciones</th>
+              {esAdmin && <th className="px-6 py-4 text-right">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
@@ -67,14 +71,16 @@ export const ApoderadosView: React.FC<ApoderadosViewProps> = ({
                   </div>
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{ap.creado_en ? new Date(ap.creado_en).toLocaleString('es-PE') : '—'}</td>
-                <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleDeleteApoderado(ap.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
-                </td>
+                {esAdmin && (
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => handleDeleteApoderado(ap.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
+                  </td>
+                )}
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-6 py-10 text-center text-slate-400 font-bold italic">No hay apoderados registrados</td>
+                <td colSpan={esAdmin ? 4 : 3} className="px-6 py-10 text-center text-slate-400 font-bold italic">No hay apoderados registrados</td>
               </tr>
             )}
           </tbody>

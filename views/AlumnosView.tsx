@@ -8,6 +8,7 @@ interface AlumnosViewProps {
   setEditingItem: (item: any) => void;
   setIsModalOpen: (open: boolean) => void;
   handleDeleteAlumno: (id: number) => void;
+  esAdmin: boolean;
 }
 
 export const AlumnosView: React.FC<AlumnosViewProps> = ({
@@ -16,6 +17,7 @@ export const AlumnosView: React.FC<AlumnosViewProps> = ({
   setEditingItem,
   setIsModalOpen,
   handleDeleteAlumno,
+  esAdmin,
 }) => {
   const sorted = [...alumnos].sort((a, b) => {
     const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
@@ -29,9 +31,11 @@ export const AlumnosView: React.FC<AlumnosViewProps> = ({
     <div className="glass-card rounded-3xl overflow-hidden border border-slate-200">
       <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
         <h3 className="text-xl font-bold text-slate-800">Directorio de Alumnos</h3>
-        <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50">
-          <Plus size={18} /> Nuevo Alumno
-        </button>
+        {esAdmin && (
+          <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50">
+            <Plus size={18} /> Nuevo Alumno
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -41,7 +45,7 @@ export const AlumnosView: React.FC<AlumnosViewProps> = ({
               <th className="px-6 py-4 text-left">Edad</th>
               <th className="px-6 py-4 text-left">Contacto</th>
               <th className="px-6 py-4 text-left">Registro</th>
-              <th className="px-6 py-4 text-right">Acciones</th>
+              {esAdmin && <th className="px-6 py-4 text-right">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
@@ -75,9 +79,11 @@ export const AlumnosView: React.FC<AlumnosViewProps> = ({
                   )}
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-400 font-bold uppercase">{al.creado_en ? new Date(al.creado_en).toLocaleString('es-PE') : '—'}</td>
-                <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleDeleteAlumno(al.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
-                </td>
+                {esAdmin && (
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => handleDeleteAlumno(al.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={18} /></button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
