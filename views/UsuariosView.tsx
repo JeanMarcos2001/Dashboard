@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, UserCheck, UserX, MapPin, Loader2, AlertCircle, ShieldCheck, Building2 } from 'lucide-react';
-import type { PerfilUsuario, Filial } from '../types';
-import { getUsuarios, crearUsuarioSede, desactivarUsuario, reactivarUsuario } from '../services/auth';
+import { Plus, UserCheck, UserX, MapPin, Loader2, AlertCircle, ShieldCheck, Building2, Eye, EyeOff, Pencil } from 'lucide-react';
+import type { PerfilUsuario, Filial, DatosEdicionUsuario } from '../types';
+import { getUsuarios, crearUsuarioSede, actualizarUsuarioSede, desactivarUsuario, reactivarUsuario } from '../services/auth';
+import { EditarUsuarioModal } from '../components/EditarUsuarioModal';
 
 interface UsuariosViewProps {
   filiales: Filial[];
@@ -10,7 +11,7 @@ interface UsuariosViewProps {
 /**
  * Vista de gestión de usuarios.
  * Solo accesible para rol 'administrador'.
- * Permite crear usuarios de sede (un usuario por filial), activarlos/desactivarlos.
+ * Permite crear usuarios de sede (un usuario por filial), editarlos y activarlos/desactivarlos.
  */
 export const UsuariosView: React.FC<UsuariosViewProps> = ({ filiales }) => {
   const [usuarios, setUsuarios] = useState<PerfilUsuario[]>([]);
@@ -23,8 +24,12 @@ export const UsuariosView: React.FC<UsuariosViewProps> = ({ filiales }) => {
   const [formPassword, setFormPassword] = useState('');
   const [formNombre, setFormNombre] = useState('');
   const [formFilialId, setFormFilialId] = useState<number | ''>('');
+  const [verPassword, setVerPassword] = useState(false);
   const [creando, setCreando] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Edición
+  const [usuarioEditando, setUsuarioEditando] = useState<PerfilUsuario | null>(null);
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
@@ -50,9 +55,18 @@ export const UsuariosView: React.FC<UsuariosViewProps> = ({ filiales }) => {
       setFormError(error.message || 'Error al crear el usuario.');
     } else {
       setShowForm(false);
-      setFormEmail(''); setFormPassword(''); setFormNombre(''); setFormFilialId('');
+      setFormEmail(''); setFormPassword(''); setFormNombre(''); setFormFilialId(''); setVerPassword(false);
       await cargarUsuarios();
     }
+  };
+
+  const handleGuardarEdicion = async (datos: DatosEdicionUsuario): Promise<string | null> => {
+    if (!usuarioEditando) return null;
+    const { data, error } = await actualizarUsuarioSede(usuarioEditando.id, datos);
+    if (error || !data) return error?.message || 'Error al actualizar el usuario.';
+    setUsuarios(prev => prev.map(u => (u.id === data.id ? { ...u, ...data } : u)));
+    setUsuarioEditando(null);
+    return null;
   };
 
   const toggleActivo = async (u: PerfilUsuario) => {
@@ -137,15 +151,27 @@ export const UsuariosView: React.FC<UsuariosViewProps> = ({ filiales }) => {
                 <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                   Contraseña temporal (mín. 8 caracteres)
                 </label>
-                <input
-                  type="password"
-                  value={formPassword}
-                  onChange={e => setFormPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={8}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type={verPassword ? 'text' : 'password'}
+                    value={formPassword}
+                    onChange={e => setFormPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="w-full pl-3.5 pr-11 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVerPassword(v => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    title={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {verPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
 
               {formError && (
@@ -165,7 +191,7 @@ export const UsuariosView: React.FC<UsuariosViewProps> = ({ filiales }) => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowForm(false); setFormError(null); }}
+                  onClick={() => { setShowForm(false); setFormError(null); setVerPassword(false); }}
                   className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all"
                 >
                   Cancelar
@@ -239,19 +265,29 @@ export const UsuariosView: React.FC<UsuariosViewProps> = ({ filiales }) => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {/* No se puede desactivar al administrador */}
+                      {/* El administrador no se edita ni se desactiva desde aquí */}
                       {u.rol !== 'administrador' && (
-                        <button
-                          onClick={() => toggleActivo(u)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            u.activo
-                              ? 'text-amber-500 hover:bg-amber-50'
-                              : 'text-emerald-600 hover:bg-emerald-50'
-                          }`}
-                          title={u.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
-                        >
-                          {u.activo ? <UserX size={18} /> : <UserCheck size={18} />}
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setUsuarioEditando(u)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            title="Editar usuario"
+                            aria-label={`Editar ${u.nombre_display}`}
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            onClick={() => toggleActivo(u)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              u.activo
+                                ? 'text-amber-500 hover:bg-amber-50'
+                                : 'text-emerald-600 hover:bg-emerald-50'
+                            }`}
+                            title={u.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
+                          >
+                            {u.activo ? <UserX size={18} /> : <UserCheck size={18} />}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -261,6 +297,13 @@ export const UsuariosView: React.FC<UsuariosViewProps> = ({ filiales }) => {
           </div>
         )}
       </div>
+
+      <EditarUsuarioModal
+        usuario={usuarioEditando}
+        filiales={filiales}
+        onClose={() => setUsuarioEditando(null)}
+        onGuardar={handleGuardarEdicion}
+      />
     </div>
   );
 };

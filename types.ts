@@ -11,6 +11,12 @@ export interface PerfilUsuario {
   created_at: string;
 }
 
+// Datos que el administrador puede editar de un usuario de sede
+export interface DatosEdicionUsuario {
+  nombre_display: string;
+  id_filial: number;
+}
+
 // ─── Tipo de Vista activa ─────────────────────────────────────────────────────
 export type ActiveView =
   | 'dashboard'

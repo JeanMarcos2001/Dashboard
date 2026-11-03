@@ -1,5 +1,5 @@
 import { supabase, supabaseAdmin } from '@/config/supabase';
-import type { PerfilUsuario } from '@/types';
+import type { PerfilUsuario, DatosEdicionUsuario } from '@/types';
 
 // ─── Sesión ───────────────────────────────────────────────────────────────────
 
@@ -80,6 +80,29 @@ export const crearUsuarioSede = async (
   }
 
   return { error: null };
+};
+
+/**
+ * Actualiza el nombre para mostrar y la filial de un usuario de sede.
+ * Solo afecta perfiles con rol 'sede'. Si RLS bloquea el cambio, Supabase no devuelve
+ * error pero tampoco filas; se trata como error para no mostrar un éxito falso.
+ */
+export const actualizarUsuarioSede = async (
+  userId: string,
+  datos: DatosEdicionUsuario
+): Promise<{ data: PerfilUsuario | null; error: any }> => {
+  const { data, error } = await supabase
+    .from('perfiles_usuario')
+    .update(datos)
+    .eq('id', userId)
+    .eq('rol', 'sede')
+    .select()
+    .maybeSingle();
+
+  if (!error && !data) {
+    return { data: null, error: { message: 'No se pudo actualizar el usuario (no existe o no tienes permisos).' } };
+  }
+  return { data: data as PerfilUsuario | null, error };
 };
 
 /**
