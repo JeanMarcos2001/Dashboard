@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GraduationCap, Mail, Lock, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface LoginViewProps {
@@ -12,6 +12,31 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
+
+  // Área realmente visible en móvil: se reduce cuando aparece el teclado
+  const [visible, setVisible] = useState<{ height: number; top: number } | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const actualizar = () => {
+      if (!vv || window.innerWidth >= 1024) return setVisible(null);
+      setVisible({ height: vv.height, top: vv.offsetTop });
+    };
+    actualizar();
+    vv?.addEventListener('resize', actualizar);
+    vv?.addEventListener('scroll', actualizar);
+    window.addEventListener('resize', actualizar);
+    return () => {
+      vv?.removeEventListener('resize', actualizar);
+      vv?.removeEventListener('scroll', actualizar);
+      window.removeEventListener('resize', actualizar);
+    };
+  }, []);
+
+  // Al enfocar un campo, llevarlo al centro del área visible (sobre el teclado)
+  const mostrarCampo = (e: React.FocusEvent<HTMLFormElement>) => {
+    const campo = e.target;
+    setTimeout(() => campo.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +59,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
   };
 
   return (
-    <div className="min-h-screen flex bg-white p-4 lg:p-6 gap-6">
+    <div
+      className="fixed inset-x-0 top-0 h-[100dvh] overflow-hidden flex bg-white lg:static lg:h-auto lg:min-h-screen lg:p-6 lg:gap-6"
+      style={visible ? { height: visible.height, top: visible.top } : undefined}
+    >
       {/* Panel de imagen (solo escritorio) */}
       <aside className="hidden lg:block lg:w-[48%] relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-800">
         <img
@@ -44,21 +72,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
         />
       </aside>
 
-      <div className="flex-1 flex items-center justify-center relative px-2">
-        {/* Fondo decorativo sutil */}
+      <div className="relative flex-1 min-w-0">
+        {/* Fondo decorativo a todo el ancho */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse 60% 40% at 100% 0%, rgba(16,185,129,0.10) 0%, transparent 70%)',
+              'radial-gradient(ellipse 110% 50% at 100% 0%, rgba(16,185,129,0.14) 0%, transparent 70%)',
           }}
         />
 
-      <div className="w-full max-w-sm relative z-10">
-        <div className="p-2 sm:p-8">
+        {/* Área con scroll interno: solo aparece si el contenido no cabe (p. ej. con el teclado) */}
+        <div className="absolute inset-0 flex overflow-y-auto overscroll-contain">
+      <div className="m-auto w-full max-w-sm px-6 py-4 relative z-10">
+        <div className="sm:p-8">
 
           {/* Logo / Branding */}
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-6 sm:mb-8">
             <div className="w-16 h-16 rounded-full gradient-brand flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-700/40">
               <GraduationCap size={30} className="text-white" fill="white" />
             </div>
@@ -71,7 +101,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
           </div>
 
           {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} onFocus={mostrarCampo} className="space-y-4">
             {/* Email */}
             <div>
               <label
@@ -179,10 +209,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
         </div>
 
         {/* Pie de página */}
-        <p className="text-center text-[11px] text-slate-400 mt-6">
+        <p className="text-center text-[11px] text-slate-400 mt-4 sm:mt-6">
           © {new Date().getFullYear()} Dashboard Web
         </p>
       </div>
+        </div>
       </div>
     </div>
   );
