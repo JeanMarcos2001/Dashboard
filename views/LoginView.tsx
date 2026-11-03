@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GraduationCap, Mail, Lock, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface LoginViewProps {
@@ -14,12 +14,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
   const [error, setError]         = useState<string | null>(null);
 
   // Área realmente visible en móvil: se reduce cuando aparece el teclado
-  const [visible, setVisible] = useState<{ height: number; top: number } | null>(null);
+  // `escala` reduce el contenido en pantallas pequeñas (se calcula con el alto sin teclado)
+  const [visible, setVisible] = useState<{ height: number; top: number; escala: number } | null>(null);
+  const alturaBase = useRef({ ancho: 0, alto: 0 });
   useEffect(() => {
     const vv = window.visualViewport;
     const actualizar = () => {
       if (!vv || window.innerWidth >= 1024) return setVisible(null);
-      setVisible({ height: vv.height, top: vv.offsetTop });
+      if (alturaBase.current.ancho !== window.innerWidth) {
+        alturaBase.current = { ancho: window.innerWidth, alto: vv.height };
+      }
+      alturaBase.current.alto = Math.max(alturaBase.current.alto, vv.height);
+      const escala = Math.min(1, (alturaBase.current.alto - 16) / 640, window.innerWidth / 340);
+      setVisible({ height: vv.height, top: vv.offsetTop, escala: Math.max(0.78, escala) });
     };
     actualizar();
     vv?.addEventListener('resize', actualizar);
@@ -83,8 +90,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
         />
 
         {/* Área con scroll interno: solo aparece si el contenido no cabe (p. ej. con el teclado) */}
-        <div className="absolute inset-0 flex overflow-y-auto overscroll-contain">
-      <div className="m-auto w-full max-w-sm px-6 py-4 relative z-10">
+        <div className="absolute inset-0 flex overflow-y-auto overflow-x-hidden overscroll-contain no-scrollbar">
+      <div
+        className="m-auto w-full min-w-0 max-w-sm px-6 py-4 relative z-10"
+        style={visible ? { zoom: visible.escala } : undefined}
+      >
         <div className="sm:p-8">
 
           {/* Logo / Branding */}
@@ -123,7 +133,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
                   placeholder="usuario@ejemplo.com"
                   required
                   autoComplete="username"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-base sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -149,7 +159,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-base sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                 />
                 <button
                   type="button"
