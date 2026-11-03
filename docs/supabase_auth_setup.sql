@@ -1,5 +1,5 @@
 -- =============================================================================
--- EduTrack Dashboard — Script de Autenticación y Roles
+-- Dashboard Web — Script de Autenticación y Roles
 -- Ejecutar en: Supabase Dashboard → SQL Editor
 -- IDEMPOTENTE: se puede ejecutar múltiples veces sin error.
 -- =============================================================================

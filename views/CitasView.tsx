@@ -1107,7 +1107,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   };
                   const emoji = estadoEmoji[detailsAppointment.estado] ?? '📋';
                   const mensaje =
-                    `📋 *DETALLE DE CITA — EduTrack*\n\n` +
+                    `📋 *DETALLE DE CITA — Dashboard Web*\n\n` +
                     `🎓 *Alumno:* ${detailsAppointment.alumno_nombre}\n` +
                     `👤 *Contacto:* ${contactoNombre}\n` +
                     `📞 *Teléfono:* ${contactoTel}\n` +

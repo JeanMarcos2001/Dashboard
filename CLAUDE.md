@@ -1,4 +1,4 @@
-# CLAUDE.md — Estado del Proyecto EduTrack Dashboard
+# CLAUDE.md — Estado del Proyecto Dashboard Web
 
 Estructura y reglas del proyecto: @AGENTS.md
 Inventario completo del proyecto (vistas, servicios, tipos, estado): @docs/ARQUITECTURA.md

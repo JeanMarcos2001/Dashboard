@@ -1,4 +1,4 @@
-# EduTrack Dashboard — Guía de Agentes
+# Dashboard Web — Guía de Agentes
 
 Dashboard de gestión educativa. **React 19 + TypeScript + Vite + Supabase**, Tailwind (CDN) + lucide-react. Todo en **español** (UI, comentarios, commits).
 

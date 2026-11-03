@@ -1,4 +1,4 @@
-# ARQUITECTURA.md — EduTrack Dashboard
+# ARQUITECTURA.md — Dashboard Web
 
 Inventario completo del estado actual del proyecto: vistas, componentes, servicios, tipos, estado global y lógica condicional.
 
@@ -93,16 +93,19 @@ Dashboard/
 
 Gestiona toda la sesión. Expone: `session`, `perfil`, `loadingAuth`, `signIn`, `signOut`.
 
+El callback de `onAuthStateChange` es **síncrono** (solo `setState`): `auth-js` lo ejecuta con su candado interno tomado, así que un `await` a Supabase dentro de él se bloquea a sí mismo hasta el timeout (~8s al refrescar o al volver a la pestaña). El perfil se carga en un `useEffect` aparte, keyed por `session.user.id`.
+
 | Evento Supabase | Comportamiento |
 |---|---|
-| `INITIAL_SESSION` | Verifica expiración manual (48h), carga perfil, valida `activo` |
-| `SIGNED_IN` | Carga perfil, valida `activo`. Si inactivo → cierra sesión |
-| `SIGNED_OUT` | Limpia estado |
-| `TOKEN_REFRESHED` | Actualiza sesión sin recargar perfil (evita flickers) |
-| `USER_UPDATED` | Igual que TOKEN_REFRESHED |
+| `INITIAL_SESSION` | Verifica expiración manual (48h), fija la sesión y marca la sesión como verificada |
+| `SIGNED_IN` | Actualiza la sesión (también se emite al volver a la pestaña; no recarga datos) |
+| `SIGNED_OUT` | Limpia sesión, perfil y caché |
+| `TOKEN_REFRESHED` / `USER_UPDATED` | Actualiza la sesión sin recargar perfil (evita flickers) |
 
-- **Timeout de perfil:** 8 segundos máximo para cargar `getPerfilUsuario`
-- **Timer de seguridad:** si Supabase no dispara `INITIAL_SESSION` en 6s, desbloquea la UI
+- **Perfil en caché:** `localStorage['edutrack_perfil_cache']`. Se pinta al instante (solo UI; la seguridad real es RLS) y se revalida en segundo plano. Si la revalidación falla por red se conserva; si la cuenta está desactivada o sin perfil (`PGRST116`) se cierra la sesión.
+- **Una sola petición de perfil:** `cargarPerfil()` comparte la petición en curso entre el efecto de perfil y `signIn()`.
+- **Timeout de perfil:** 10 segundos máximo para `getPerfilUsuario`
+- **Red de seguridad:** si Supabase no dispara ningún evento en 8s, se muestra el login en vez de un loader eterno
 - **"Recordar sesión":** si no está marcado, guarda expiración de 48h en `localStorage`
 
 ### Roles
@@ -409,14 +412,14 @@ Devuelve `true` si la cita es de un alumno ya registrado (vs. matrícula nueva).
 
 ## 11. Fetch de datos
 
-`fetchAllData(silent?)` en App.tsx carga en paralelo con `Promise.all`:
+`fetchAllData(silent?)` en App.tsx lanza en paralelo:
 ```
 getAlumnos, getFiliales, getCitas, getApoderados,
 getHistorias, getColoresCorporativos, getCarruselImagenes, getMensajesWsp
 ```
-- `silent = false` → muestra `<Loader />` de pantalla completa
+- Cada tabla se aplica al estado apenas responde, y el fallo de una no bloquea a las demás (cada error se registra en consola como `[FETCH] Error <tabla>`)
 - `silent = true` → activa indicador `refreshing` sin bloquear la UI
-- Solo se ejecuta cuando hay `session` y `perfil` activos
+- Arranca apenas hay `session` (en paralelo con la carga del perfil); RLS filtra por el JWT
 
 ---
 

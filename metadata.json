@@ -1,5 +1,5 @@
 {
-  "name": "EduTrack Dashboard",
+  "name": "Dashboard Web",
   "description": "Un panel de control avanzado para el seguimiento de citas, alumnos y apoderados, con análisis estadísticos y gestión de estados en tiempo real.",
   "requestFramePermissions": []
 }

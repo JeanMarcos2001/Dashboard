@@ -269,9 +269,9 @@ const App: React.FC = () => {
     onCancel?: () => void;
   } | null>(null);
 
-  // Fetch inicial de datos — solo cuando hay sesión activa
+  // Fetch inicial de datos — apenas hay sesión, en paralelo con la carga del perfil (RLS filtra por el JWT)
   useEffect(() => {
-    if (session && perfil) fetchAllData();
+    if (session) fetchAllData();
   }, [session?.user?.id]);
 
   // Alumnos filtrados por sede y término de búsqueda predictiva
@@ -321,39 +321,34 @@ const App: React.FC = () => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
-    try {
-      const [alRes, filRes, appResData, apoRes, histRes, colorRes, c02Res, msgRes] = await Promise.all([
-        getAlumnos(),
-        getFiliales(),
-        getCitas(),
-        getApoderados(),
-        getHistorias(),
-        getColoresCorporativos(),
-        getCarruselImagenes(),
-        getMensajesWsp()
-      ]);
+    // Cada tabla se aplica apenas responde y un fallo no bloquea a las demás
+    const cargar = async <T,>(nombre: string, consulta: Promise<T>, aplicar: (resultado: T) => void) => {
+      try {
+        aplicar(await consulta);
+      } catch (error) {
+        console.error(`[FETCH] Error ${nombre}:`, error);
+      }
+    };
+    const lista = <T,>(nombre: string, setter: (datos: T[]) => void) =>
+      (res: { data: T[] | null; error: { message: string } | null }) => {
+        if (res.error) console.error(`[FETCH] Error ${nombre}:`, res.error.message);
+        if (res.data) setter(res.data);
+      };
 
-      if (alRes.error) console.error('[FETCH] Error alumnos:', alRes.error.message);
-      if (filRes.error) console.error('[FETCH] Error filiales:', filRes.error.message);
-      if (apoRes.error) console.error('[FETCH] Error apoderados:', apoRes.error.message);
-      if (msgRes.error) console.error('[FETCH] Error mensajes wsp:', msgRes.error.message);
+    await Promise.all([
+      cargar('alumnos', getAlumnos(), lista('alumnos', setAlumnos)),
+      cargar('filiales', getFiliales(), lista('filiales', setFiliales)),
+      cargar('apoderados', getApoderados(), lista('apoderados', setApoderados)),
+      cargar('historias', getHistorias(), lista('historias', setHistorias)),
+      cargar('colores', getColoresCorporativos(), lista('colores', setColoresCorporativos)),
+      cargar('carrusel', getCarruselImagenes(), lista('carrusel', setCarrusel02)),
+      cargar('mensajes wsp', getMensajesWsp(), lista('mensajes wsp', setMensajesWsp)),
+      // getCitas() ya devuelve las citas normalizadas y ordenadas
+      cargar('citas', getCitas(), setAppointments),
+    ]);
 
-      if (alRes.data) setAlumnos(alRes.data);
-      if (filRes.data) setFiliales(filRes.data);
-      if (apoRes.data) setApoderados(apoRes.data);
-      if (histRes.data) setHistorias(histRes.data);
-      if (colorRes.data) setColoresCorporativos(colorRes.data);
-      if (c02Res.data) setCarrusel02(c02Res.data);
-      if (msgRes.data) setMensajesWsp(msgRes.data);
-
-      // appResData ya está completamente normalizado y ordenado por getCitas()
-      setAppointments(appResData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    setLoading(false);
+    setRefreshing(false);
   };
 
   // Estadísticas globales (solo de Entrevistas, excluyendo Citas)
@@ -1487,8 +1482,7 @@ const App: React.FC = () => {
               <GraduationCap size={20} />
             </div>
             <div>
-              <h1 className="text-[15px] font-bold text-slate-800 tracking-tight leading-none mb-1">Dashboard</h1>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider leading-none">EduTrack</p>
+              <h1 className="text-[15px] font-bold text-slate-800 tracking-tight leading-none">Dashboard Web</h1>
             </div>
           </div>
           {/* Close button inside sidebar (mobile only) */}
