@@ -1,4 +1,28 @@
 
+// ─── Autenticación y Roles ───────────────────────────────────────────────────
+export type RolUsuario = 'administrador' | 'sede';
+
+export interface PerfilUsuario {
+  id: string;           // UUID — mismo que auth.users.id
+  rol: RolUsuario;
+  id_filial: number | null; // null para administrador
+  nombre_display: string;
+  activo: boolean;
+  created_at: string;
+}
+
+// ─── Tipo de Vista activa ─────────────────────────────────────────────────────
+export type ActiveView =
+  | 'dashboard'
+  | 'citas'
+  | 'alumnos'
+  | 'apoderados'
+  | 'filiales'
+  | 'historias'
+  | 'carrusel02'
+  | 'reportes'
+  | 'usuarios';
+
 export enum AppointmentStatus {
   CONFIRMADO = 'CONFIRMADO',
   CANCELADO = 'CANCELADO',

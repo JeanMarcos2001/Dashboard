@@ -335,6 +335,8 @@ export const CarruselView: React.FC<CarruselViewProps> = ({
                       src={getCarrusel02Url(img.file_path)}
                       alt={img.nombre}
                       className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     />
                   </div>

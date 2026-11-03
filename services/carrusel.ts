@@ -18,7 +18,11 @@ export const updateCarruselImagen = async (id: number, payload: Partial<Carrusel
 };
 
 export const uploadCarruselFoto = async (fileName: string, file: Blob | File) => {
-  return await supabase.storage.from('carrusel_02').upload(fileName, file, { upsert: false, contentType: 'image/webp' });
+  return await supabase.storage.from('carrusel_02').upload(fileName, file, {
+    upsert: false,
+    contentType: 'image/webp',
+    cacheControl: '2592000',
+  });
 };
 
 export const removeCarruselFotos = async (paths: string[]) => {

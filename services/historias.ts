@@ -18,5 +18,9 @@ export const deleteHistoria = async (id: number) => {
 };
 
 export const uploadHistoriaFoto = async (fileName: string, file: Blob | File) => {
-  return await supabase.storage.from('Testimonios').upload(fileName, file, { upsert: true, contentType: 'image/webp' });
+  return await supabase.storage.from('Testimonios').upload(fileName, file, {
+    upsert: true,
+    contentType: 'image/webp',
+    cacheControl: '2592000',
+  });
 };

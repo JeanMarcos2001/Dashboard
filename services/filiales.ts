@@ -21,8 +21,12 @@ export const deleteFilial = async (id: number) => {
   return await supabase.from('filiales').delete().eq('id', id);
 };
 
-export const uploadFilialFoto = async (fileName: string, file: File) => {
-  return await supabase.storage.from('Filiales').upload(fileName, file);
+export const uploadFilialFoto = async (fileName: string, file: Blob | File) => {
+  return await supabase.storage.from('Filiales').upload(fileName, file, {
+    upsert: true,
+    contentType: 'image/webp',
+    cacheControl: '2592000',
+  });
 };
 
 export const getFilialFotoPublicUrl = (fileName: string) => {
