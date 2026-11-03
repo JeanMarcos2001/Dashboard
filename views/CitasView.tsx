@@ -718,6 +718,8 @@ export const CitasView: React.FC<CitasViewProps> = ({
     const rangeLabel = isMobile
       ? `${DAY_NAMES[mobileDays[1].getDay()]} ${mobileDays[1].getDate()} ${MONTH_NAMES[mobileDays[1].getMonth()]} — ${DAY_NAMES[mobileDays[2].getDay()]} ${mobileDays[2].getDate()} ${MONTH_NAMES[mobileDays[2].getMonth()]} ${mobileDays[2].getFullYear()}`
       : `${DAY_NAMES[startDay.getDay()]} ${startDay.getDate()} ${MONTH_NAMES[startDay.getMonth()]} — ${DAY_NAMES[endDay.getDay()]} ${endDay.getDate()} ${MONTH_NAMES[endDay.getMonth()]} ${endDay.getFullYear()}`;
+    // Etiqueta compacta para móvil: "3 — 4 nov."
+    const compactMobileLabel = `${mobileDays[1].getDate()} — ${mobileDays[2].getDate()} ${MONTH_NAMES[mobileDays[1].getMonth()].slice(0, 3).toLowerCase()}.`;
 
     const STATUS_STYLES: Record<string, { bg: string; border: string; dot: string; text: string }> = {
       [AppointmentStatus.AGENDADO]: { bg: 'bg-amber-50', border: 'border-amber-200', dot: 'bg-amber-500', text: 'text-amber-700' },
@@ -747,8 +749,9 @@ export const CitasView: React.FC<CitasViewProps> = ({
           >
             <ChevronLeft size={19} className="rotate-180" />
           </button>
-          <span className="flex-1 text-center font-semibold text-slate-700 text-sm md:text-base tracking-tight select-none">
-            {rangeLabel}
+          <span className="flex-1 text-center tracking-tight select-none">
+            <span className="hidden md:inline font-semibold text-slate-700 text-base">{rangeLabel}</span>
+            <span className="md:hidden font-bold text-slate-600 text-xs">{compactMobileLabel}</span>
           </span>
           <button
             onClick={() => isMobile ? goToTodayMobile() : goToToday()}
@@ -1437,16 +1440,16 @@ export const CitasView: React.FC<CitasViewProps> = ({
               </button>
             </div>
             {/* Botones de acción: apilados en móvil (uno sobre otro), en fila en desktop */}
-            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+            <div className="flex flex-row gap-2 w-full md:w-auto">
               <button
                 onClick={() => {
                   resetAppointmentFields();
                   setSchedulingFlow('existing');
                   setIsModalOpen(true);
                 }}
-                className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50 cursor-pointer w-full md:w-auto"
+                className="bg-emerald-600 text-white px-3 py-2.5 md:px-4 rounded-xl font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100/50 cursor-pointer flex-1 md:flex-none text-xs md:text-sm leading-tight"
               >
-                <Plus size={18} /> Agendar cita
+                <Plus size={16} className="flex-shrink-0" /> <span>Agendar<br className="md:hidden" /> cita</span>
               </button>
               <button
                 onClick={() => {
@@ -1454,9 +1457,9 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   setSchedulingFlow('new');
                   setIsModalOpen(true);
                 }}
-                className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100/50 cursor-pointer w-full md:w-auto"
+                className="bg-indigo-600 text-white px-3 py-2.5 md:px-4 rounded-xl font-semibold flex items-center justify-center gap-1.5 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100/50 cursor-pointer flex-1 md:flex-none text-xs md:text-sm leading-tight"
               >
-                <Plus size={18} /> Agendar entrevista
+                <Plus size={16} className="flex-shrink-0" /> <span>Agendar<br className="md:hidden" /> entrevista</span>
               </button>
             </div>
           </div>

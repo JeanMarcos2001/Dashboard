@@ -1693,15 +1693,12 @@ const App: React.FC = () => {
             >
               <Menu size={20} />
             </button>
-            <div>
-              <h2 className="text-2xl font-bold text-slate-800 tracking-tight capitalize">{
-                activeView === 'citas' ? 'Agenda diaria' :
-                activeView === 'carrusel02' ? 'Carrusel' :
-                activeView === 'usuarios' ? 'Gestión de Usuarios' :
-                activeView
-              }</h2>
-              <p className="text-slate-500 font-bold italic text-sm">Control centralizado de operaciones</p>
-            </div>
+            <h2 className="text-2xl font-bold text-slate-800 tracking-tight capitalize">{
+              activeView === 'citas' ? 'Agenda diaria' :
+              activeView === 'carrusel02' ? 'Carrusel' :
+              activeView === 'usuarios' ? 'Gestión de Usuarios' :
+              activeView
+            }</h2>
             <button
               onClick={() => fetchAllData(true)}
               className={`p-2 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-all ${refreshing ? 'animate-spin text-emerald-600' : 'text-slate-400'}`}
