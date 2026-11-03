@@ -106,7 +106,7 @@ export const MiniCalendar: React.FC<MiniCalendarProps> = ({ appointments }) => {
   const capitalizedMonth = MONTH_NAMES[month];
 
   return (
-    <div className="glass-card rounded-3xl p-6 border border-slate-200 bg-white shadow-sm flex flex-col">
+    <div className="glass-card rounded-3xl p-4 sm:p-6 border border-slate-200 bg-white shadow-sm flex flex-col min-w-0">
       {/* 1. Fila superior con las iniciales de los días */}
       <div className="grid grid-cols-7 gap-1 text-center mb-3">
         {DAYS_INITIALS.map((day, idx) => (
@@ -141,7 +141,7 @@ export const MiniCalendar: React.FC<MiniCalendarProps> = ({ appointments }) => {
       </div>
 
       {/* 3. Grilla de días */}
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {calendarCells.map((cell, idx) => {
           const interviewsCount = getInterviewsCountForDate(cell.date);
           const isSelected = isSameDay(cell.date, selectedDate);
@@ -149,7 +149,7 @@ export const MiniCalendar: React.FC<MiniCalendarProps> = ({ appointments }) => {
           const badgeStyle = getBadgeStyle(interviewsCount);
 
           // Estilo de la celda de día
-          let cellStyle = 'relative aspect-square flex flex-col items-center justify-between p-1 rounded-[21px] transition-all duration-200 ';
+          let cellStyle = 'relative aspect-square flex flex-col items-center justify-between p-0.5 sm:p-1 rounded-xl sm:rounded-[21px] transition-all duration-200 ';
 
           if (!cell.isCurrentMonth) {
             cellStyle += 'bg-slate-50/30 text-slate-300 opacity-40 pointer-events-none ';

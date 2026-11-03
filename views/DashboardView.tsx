@@ -19,25 +19,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, appointment
 
 
     {/* Main grid: left side (Actividad) and right side (MiniCalendar + Alumnos) */}
-    <div className="grid lg:grid-cols-3 gap-3.5">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
       {/* Left side – actividad reciente */}
-      <div className="lg:col-span-2 flex flex-col gap-3.5">
+      <div className="lg:col-span-2 flex flex-col gap-3.5 min-w-0">
         {/* Count cards - same width as activity list */}
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
           <StatCard title="Total Entrevistas" value={stats.totalAppointments} icon={<Calendar className="text-blue-500" />} trend="Histórico" color="blue" />
           <StatCard title="Confirmadas" value={stats.verifiedCount} icon={<CheckCircle2 className="text-emerald-500" />} trend={`${((stats.verifiedCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="emerald" />
           <StatCard title="Pendientes" value={stats.pendingCount} icon={<Clock className="text-amber-500" />} trend={`${((stats.pendingCount / Math.max(stats.totalAppointments, 1)) * 100).toFixed(1)}% del total`} color="amber" />
           <StatCard title="Conversión" value={`${stats.conversionRate.toFixed(1)}%`} icon={<ArrowUpRight className="text-purple-500" />} trend="Matrículas exitosas" color="purple" />
         </div>
 
-        <div className="glass-card rounded-3xl p-6 border border-slate-200">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-slate-800">Actividad reciente en agenda</h3>
-            <button onClick={() => setActiveView('citas')} className="text-emerald-600 font-bold text-sm flex items-center gap-1 hover:underline">
+        <div className="glass-card rounded-3xl p-4 sm:p-6 border border-slate-200 min-w-0">
+          <div className="flex justify-between items-center gap-3 mb-4 sm:mb-6">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800 leading-tight">Actividad reciente en agenda</h3>
+            <button onClick={() => setActiveView('citas')} className="shrink-0 whitespace-nowrap text-emerald-600 font-bold text-sm flex items-center gap-1 hover:underline">
               Ver todas <ChevronRight size={16} />
             </button>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {appointments.length > 0 ? appointments.slice(0, 4).map(app => {
               const al = alumnos.find(a => a.id === app.id_alumno);
               const isExistente = isAlumnoExistenteCita(app);
@@ -48,14 +48,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, appointment
               const avatarClasses = isExistente ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white';
 
               return (
-                <div key={app.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-200 group ${containerClasses}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl shadow-sm flex items-center justify-center font-medium text-lg ${avatarClasses}`}>
+                <div key={app.id} className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-2 p-3 sm:p-4 rounded-2xl border transition-all duration-200 group ${containerClasses}`}>
+                  <div className="flex items-center gap-3 min-w-0 flex-1 basis-[12rem]">
+                    <div className={`w-10 h-10 shrink-0 rounded-xl shadow-sm flex items-center justify-center font-medium text-lg ${avatarClasses}`}>
                       {app.alumno_nombre?.[0] || 'A'}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-slate-800 leading-none text-[14px]">{app.alumno_nombre}</p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+                        <p className="font-medium text-slate-800 leading-tight text-[14px] break-words min-w-0">{app.alumno_nombre}</p>
                         {isNew && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500 text-white shadow-sm animate-pulse">
                             Nuevo
@@ -65,10 +65,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, appointment
                           {isExistente ? 'Cita' : 'Entrevista'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 font-medium mt-1.5 uppercase">{app.fecha_cita} • {app.hora_cita}</p>
+                      <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-1.5 uppercase">{app.fecha_cita} • {app.hora_cita}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0 ml-auto">
                     <span className="text-[12px] font-medium uppercase px-1.5 py-0.5 rounded-lg border border-slate-200/60 bg-white/70 text-slate-600 shadow-sm hidden sm:inline-block">
                       {isIndependiente ? 'Indep.' : 'Apod.'}
                     </span>
@@ -84,11 +84,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, appointment
       </div>
 
       {/* Right side – MiniCalendar above Alumnos Recientes */}
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-3.5 min-w-0">
         <MiniCalendar appointments={appointments} />
-        <div className="glass-card rounded-3xl p-6 border border-slate-200 flex-1 flex flex-col justify-between">
+        <div className="glass-card rounded-3xl p-4 sm:p-6 border border-slate-200 flex-1 flex flex-col justify-between min-w-0">
           <div>
-            <h3 className="text-xl font-bold text-slate-800 mb-6">Alumnos Recientes</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-4 sm:mb-6">Alumnos Recientes</h3>
             <div className="space-y-2 overflow-y-auto h-[178px] pr-1 no-scrollbar">
               {alumnos.length > 0 ? [...alumnos].sort((a, b) => {
                 const timeA = a.creado_en ? new Date(a.creado_en).getTime() : 0;
@@ -96,17 +96,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, appointment
                 if (timeA !== timeB) return timeB - timeA;
                 return b.id - a.id;
               }).slice(0, 4).map(al => (
-                <div key={al.id} className="flex items-center justify-between py-2 px-3 bg-slate-50/50 rounded-xl border border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-medium text-sm">
+                <div key={al.id} className="flex items-center justify-between gap-2 py-2 px-3 bg-slate-50/50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 shrink-0 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-medium text-sm">
                       {al.nombre_completo[0]}
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-800 text-sm leading-tight">{al.nombre_completo}</p>
-                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">{al.edad} años • {al.telefono}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm leading-tight truncate">{al.nombre_completo}</p>
+                      <p className="text-[11px] text-slate-400 font-medium mt-0.5 truncate">{al.edad} años • {al.telefono}</p>
                     </div>
                   </div>
-                  <button className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors"><Info size={16} /></button>
+                  <button className="shrink-0 p-1.5 text-slate-400 hover:text-emerald-600 transition-colors"><Info size={16} /></button>
                 </div>
               )) : (
                 <p className="text-center text-slate-400 py-10 font-medium italic">No hay alumnos registrados</p>

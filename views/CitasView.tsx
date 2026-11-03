@@ -10,9 +10,11 @@ import {
 } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
+import { BottomSheet } from '../components/BottomSheet';
 import {
-  isAlumnoExistenteCita, formatFriendlyDate, cleanPhoneNumberForWhatsapp
+  isAlumnoExistenteCita, formatFriendlyDate, cleanPhoneNumberForWhatsapp, construirMensajeCita
 } from '../utils/appointments';
+import { compartirTexto } from '../utils/share';
 import {
   formatHour12, getAvailableHoursForDateStr, getAvailableHours, getDaysInMonth
 } from '../utils/dateHelpers';
@@ -228,6 +230,22 @@ export const CitasView: React.FC<CitasViewProps> = ({
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [plusMenuDate, setPlusMenuDate]);
+  // Compartir cita con el selector nativo del dispositivo (o copiar si no está disponible)
+  const [avisoCompartir, setAvisoCompartir] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!avisoCompartir) return;
+    const t = setTimeout(() => setAvisoCompartir(null), 2400);
+    return () => clearTimeout(t);
+  }, [avisoCompartir]);
+
+  const compartirCita = async (cita: Appointment) => {
+    const alumno = alumnos.find(a => a.id === cita.id_alumno);
+    const apoderado = alumno ? apoderados.find(apo => apo.id === alumno.id_apoderado) : null;
+    const resultado = await compartirTexto('Detalle de cita', construirMensajeCita(cita, alumno, apoderado));
+    if (resultado === 'copiado') setAvisoCompartir('Datos de la cita copiados al portapapeles');
+    else if (resultado === 'error') setAvisoCompartir('No se pudo compartir la cita');
+  };
+
   // Ref para swipe horizontal en móvil
   const touchStartX = React.useRef<number | null>(null);
   // Estado de navegación de 2 días para móvil (independiente del semanal de desktop)
@@ -1055,80 +1073,71 @@ export const CitasView: React.FC<CitasViewProps> = ({
     }
     const availableHours = selectedDate ? getAvailableHours(selectedDate) : [];
 
+    const botonCompartir = (
+      <button
+        onClick={() => compartirCita(detailsAppointment)}
+        title="Compartir"
+        aria-label="Compartir cita"
+        className="p-2 hover:bg-emerald-100 rounded-full transition-colors text-slate-400 hover:text-emerald-600"
+      >
+        <Share2 size={20} />
+      </button>
+    );
+    const botonCerrar = (
+      <button
+        onClick={() => setIsDetailsModalOpen(false)}
+        aria-label="Cerrar"
+        className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+      >
+        <X size={20} />
+      </button>
+    );
+
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-        <div className="relative w-full max-w-2xl">
-
-          {/* Navigation Buttons (Outside on desktop) */}
-          <button onClick={() => handleDetailsNavigation('prev')} className="absolute -left-16 top-1/2 -translate-y-1/2 p-3 bg-white/95 hover:bg-white rounded-full shadow-xl text-slate-700 hover:text-emerald-600 transition-all z-20 border border-slate-200 hover:scale-105 active:scale-95 hidden md:flex cursor-pointer">
-            <ChevronLeft size={24} />
-          </button>
-          <button onClick={() => handleDetailsNavigation('next')} className="absolute -right-16 top-1/2 -translate-y-1/2 p-3 bg-white/95 hover:bg-white rounded-full shadow-xl text-slate-700 hover:text-emerald-600 transition-all z-20 border border-slate-200 hover:scale-105 active:scale-95 hidden md:flex cursor-pointer">
-            <ChevronLeft size={24} className="rotate-180" />
-          </button>
-
-          {/* Navigation Buttons (Inside on mobile to prevent clipping) */}
-          <button onClick={() => handleDetailsNavigation('prev')} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 transition-all z-10 border border-slate-100 md:hidden">
-            <ChevronLeft size={20} />
-          </button>
-          <button onClick={() => handleDetailsNavigation('next')} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full shadow-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 transition-all z-10 border border-slate-100 md:hidden">
-            <ChevronLeft size={20} className="rotate-180" />
-          </button>
-
-          {/* Modal Box */}
-          <div className="bg-white rounded-3xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden relative animate-in fade-in zoom-in duration-200">
-
-            {/* Header */}
-            <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-start">
-              <div className="flex-1 text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm mb-1">
-                    <MapPin size={24} />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 leading-tight">{detailsAppointment.filial_nombre}</h3>
-                  <StatusBadge status={detailsAppointment.estado} />
-                </div>
+      <BottomSheet
+        isOpen
+        onClose={() => setIsDetailsModalOpen(false)}
+        desktopSideControls={
+          <>
+            <button onClick={() => handleDetailsNavigation('prev')} aria-label="Cita anterior" className="absolute -left-16 top-1/2 -translate-y-1/2 p-3 bg-white/95 hover:bg-white rounded-full shadow-xl text-slate-700 hover:text-emerald-600 transition-all z-20 border border-slate-200 hover:scale-105 active:scale-95 flex cursor-pointer">
+              <ChevronLeft size={24} />
+            </button>
+            <button onClick={() => handleDetailsNavigation('next')} aria-label="Cita siguiente" className="absolute -right-16 top-1/2 -translate-y-1/2 p-3 bg-white/95 hover:bg-white rounded-full shadow-xl text-slate-700 hover:text-emerald-600 transition-all z-20 border border-slate-200 hover:scale-105 active:scale-95 flex cursor-pointer">
+              <ChevronLeft size={24} className="rotate-180" />
+            </button>
+          </>
+        }
+        header={
+          <div className="relative px-4 pb-4 pt-1 md:p-6 bg-slate-50 border-b border-slate-100">
+            {/* Barra superior en móvil: compartir · anterior/siguiente · cerrar */}
+            <div className="flex items-center justify-between md:hidden">
+              {botonCompartir}
+              <div className="flex items-center gap-1">
+                <button onClick={() => handleDetailsNavigation('prev')} aria-label="Cita anterior" className="p-2 rounded-full text-slate-500 hover:bg-slate-200 active:bg-slate-200 transition-colors">
+                  <ChevronLeft size={20} />
+                </button>
+                <button onClick={() => handleDetailsNavigation('next')} aria-label="Cita siguiente" className="p-2 rounded-full text-slate-500 hover:bg-slate-200 active:bg-slate-200 transition-colors">
+                  <ChevronLeft size={20} className="rotate-180" />
+                </button>
               </div>
-              {/* Botón compartir */}
-              <button
-                onClick={() => {
-                  const alumnoD = alumnos.find(a => a.id === detailsAppointment.id_alumno);
-                  const apoderadoD = alumnoD ? apoderados.find(apo => apo.id === alumnoD.id_apoderado) : null;
-                  const isIndep = detailsAppointment.tipo_persona === 'independiente' || !alumnoD?.id_apoderado;
-                  const contactoNombre = isIndep ? detailsAppointment.alumno_nombre : (apoderadoD?.nombre_completo || detailsAppointment.alumno_nombre);
-                  const contactoTel = isIndep ? (alumnoD?.telefono || '—') : (apoderadoD?.telefono || '—');
-                  const [h, m] = detailsAppointment.hora_cita.split(':').map(Number);
-                  const period = h >= 12 ? 'PM' : 'AM';
-                  const h12 = h % 12 || 12;
-                  const horaFormateada = `${h12}:${m.toString().padStart(2, '0')} ${period}`;
-                  const estadoEmoji: Record<string, string> = {
-                    PENDIENTE: '🕐', AGENDADO: '📅', CONFIRMADO: '✅',
-                    ASISTIO: '🎓', FALTO: '❌', CONVERTIDO: '🏆', CANCELADO: '🚫',
-                  };
-                  const emoji = estadoEmoji[detailsAppointment.estado] ?? '📋';
-                  const mensaje =
-                    `📋 *DETALLE DE CITA — Dashboard Web*\n\n` +
-                    `🎓 *Alumno:* ${detailsAppointment.alumno_nombre}\n` +
-                    `👤 *Contacto:* ${contactoNombre}\n` +
-                    `📞 *Teléfono:* ${contactoTel}\n` +
-                    `🏫 *Sede:* ${detailsAppointment.filial_nombre}\n` +
-                    `📅 *Fecha:* ${formatFriendlyDate(detailsAppointment.fecha_cita)}\n` +
-                    `⏰ *Hora:* ${horaFormateada}\n` +
-                    `${emoji} *Estado:* ${detailsAppointment.estado}` +
-                    (detailsAppointment.observaciones ? `\n\n📝 *Notas:* ${detailsAppointment.observaciones}` : '');
-                  window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
-                }}
-                title="Compartir por WhatsApp"
-                className="absolute top-4 left-4 p-2 hover:bg-emerald-100 rounded-full transition-colors text-slate-400 hover:text-emerald-600"
-              >
-                <Share2 size={20} />
-              </button>
-              <button onClick={() => setIsDetailsModalOpen(false)} className="absolute top-4 right-4 p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
-                <X size={20} />
-              </button>
+              {botonCerrar}
+            </div>
+            {/* Escritorio: compartir y cerrar en las esquinas */}
+            <div className="hidden md:block">
+              <div className="absolute top-4 left-4">{botonCompartir}</div>
+              <div className="absolute top-4 right-4">{botonCerrar}</div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex flex-col items-center gap-1.5 md:gap-2 text-center">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm md:mb-1">
+                <MapPin size={22} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 leading-tight break-words max-w-full">{detailsAppointment.filial_nombre}</h3>
+              <StatusBadge status={detailsAppointment.estado} />
+            </div>
+          </div>
+        }
+      >
 
               {/* Información del Contacto según tipo */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1401,10 +1410,7 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 )}
               </div>
 
-            </div>
-          </div>
-        </div>
-      </div>
+      </BottomSheet>
     );
   };
 
@@ -1572,6 +1578,15 @@ export const CitasView: React.FC<CitasViewProps> = ({
       </div>
 
       {renderAppointmentDetailsModal()}
+
+      {avisoCompartir && (
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-medium shadow-xl max-w-[90vw] text-center"
+        >
+          {avisoCompartir}
+        </div>
+      )}
 
       {/* Modal Agendar Cita / Entrevista */}
       <Modal

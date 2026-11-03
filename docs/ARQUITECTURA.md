@@ -36,7 +36,7 @@ Dashboard/
 │   └── useAuth.ts           # Hook de autenticación con Supabase Auth
 │
 ├── services/
-│   ├── auth.ts              # signIn, signOut, getPerfilUsuario, crearUsuarioSede, etc.
+│   ├── auth.ts              # signIn, signOut, getPerfilUsuario, crearUsuarioSede, actualizarUsuarioSede, etc.
 │   ├── alumnos.ts           # getAlumnos, createAlumno, deleteAlumno, createAlumnosBulk
 │   ├── apoderados.ts        # getApoderados, createApoderado, deleteApoderado
 │   ├── citas.ts             # getCitas, createCita, createCitasBulk, updateCitaEstado,
@@ -70,6 +70,8 @@ Dashboard/
 │
 ├── components/
 │   ├── Modal.tsx            # Modal genérico reutilizable
+│   ├── BottomSheet.tsx      # Panel de detalle: hoja inferior en móvil, modal centrado en escritorio
+│   ├── EditarUsuarioModal.tsx # Edición de nombre y sede base de un usuario de sede
 │   ├── ConfirmAlert.tsx     # Diálogo de confirmación/alerta
 │   ├── StatCard.tsx         # Tarjeta de estadística en el dashboard
 │   ├── StatusBadge.tsx      # Badge de estado de citas (coloreado)
@@ -77,7 +79,8 @@ Dashboard/
 │   └── MiniCalendar.tsx     # Calendario pequeño para selección de fecha
 │
 ├── utils/
-│   ├── appointments.ts      # isAlumnoExistenteCita() — distingue tipo de cita
+│   ├── appointments.ts      # isAlumnoExistenteCita(), formatFriendlyDate(), construirMensajeCita()
+│   ├── share.ts             # compartirTexto() — Web Share API con respaldo al portapapeles
 │   └── imageProcessing.ts   # convertToWebPBlob() — convierte imágenes a WebP
 │
 └── docs/
@@ -157,7 +160,10 @@ Vista más compleja. Tiene dos modos de visualización:
   - `newStudentType === 'dependent'`: requiere datos del apoderado
   - `newStudentType === 'independent'`: alumno sin apoderado
 
-**Modal de detalles de cita**:
+**Detalle de cita** (`BottomSheet`):
+- Móvil: hoja que sube desde abajo sobre la pantalla anterior con desenfoque; se cierra arrastrando hacia abajo, tocando el fondo o con Escape. Barra superior: compartir · anterior/siguiente · cerrar
+- Escritorio: modal centrado con flechas laterales fuera del panel
+- Compartir: selector nativo del dispositivo (`navigator.share`); si no existe, copia el texto al portapapeles y avisa
 - Navegación prev/next entre citas
 - Cambio de estado con confirmación
 - Reprogramación con mini-calendario integrado
@@ -216,6 +222,11 @@ Vista más compleja. Tiene dos modos de visualización:
   - Usa `supabaseAdmin.auth.admin.createUser()` (GoTrue Admin API)
   - Crea entrada en `perfiles_usuario` tras creación en Auth
   - Si falla el perfil → revierte eliminando el usuario de Auth
+  - El campo de contraseña tiene ojito (mostrar/ocultar)
+- **Editar usuario de sede** (lápiz en la fila → `EditarUsuarioModal`): nombre de la sede (`nombre_display`) y sede base (`id_filial`)
+  - Guardar se deshabilita sin cambios o con datos inválidos
+  - `actualizarUsuarioSede()` solo afecta perfiles `sede` y trata "0 filas actualizadas" (RLS) como error
+  - El administrador no se edita ni se desactiva desde esta vista
 - Activar / desactivar usuarios
 - Acceso: solo `administrador`
 
@@ -231,6 +242,7 @@ Vista más compleja. Tiene dos modos de visualización:
 | `StatusBadge` | Badge coloreado según `AppointmentStatus` |
 | `Loader` | Spinner de pantalla completa para carga inicial |
 | `MiniCalendar` | Calendario compacto para selección de fecha en modales de cita |
+| `EditarUsuarioModal` | Modal para editar nombre y sede base de un usuario de sede (usa `Modal`) |
 
 ---
 
@@ -240,6 +252,7 @@ Vista más compleja. Tiene dos modos de visualización:
 |---|---|
 | `RolUsuario` | `'administrador' \| 'sede'` |
 | `PerfilUsuario` | id (UUID), rol, id_filial, nombre_display, activo |
+| `DatosEdicionUsuario` | nombre_display e id_filial: lo que el admin puede editar de un usuario de sede |
 | `ActiveView` | Union de todas las vistas posibles (9 vistas) |
 | `AppointmentStatus` | Enum de estados de cita con aliases de compatibilidad |
 | `Appointment` | Cita con join de alumno_nombre y filial_nombre |
@@ -407,6 +420,12 @@ Convierte cualquier imagen a WebP con calidad 0.85 y ancho máximo 800px antes d
 
 ### `appointments.ts` — `isAlumnoExistenteCita(appointment)`
 Devuelve `true` si la cita es de un alumno ya registrado (vs. matrícula nueva). Usado para separar las estadísticas del dashboard.
+
+### `appointments.ts` — `construirMensajeCita(cita, alumno, apoderado)`
+Arma el texto con emojis que se comparte desde el detalle de cita.
+
+### `share.ts` — `compartirTexto(titulo, texto)`
+Abre el selector nativo de compartir; si el navegador no lo soporta copia al portapapeles. Devuelve `'compartido' | 'copiado' | 'cancelado' | 'error'`.
 
 ---
 

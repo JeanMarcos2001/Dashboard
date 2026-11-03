@@ -1473,10 +1473,10 @@ const App: React.FC = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-50 border-r border-slate-200/60 text-slate-700 flex flex-col p-5 shadow-[2px_0_12px_rgba(0,0,0,0.015)] backdrop-blur-md transition-transform duration-300 transform h-screen
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-50 border-r border-slate-200/60 text-slate-700 flex flex-col p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[2px_0_12px_rgba(0,0,0,0.015)] backdrop-blur-md transition-transform duration-300 transform h-[100dvh]
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="bg-white border border-slate-200/50 rounded-2xl p-4 mb-6 shadow-sm flex items-center justify-between gap-3 relative">
+        <div className="bg-white border border-slate-200/50 rounded-2xl p-4 mb-6 shadow-sm flex items-center justify-between gap-3 relative shrink-0">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl border border-emerald-100/30">
               <GraduationCap size={20} />
@@ -1494,7 +1494,8 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <nav className="space-y-1.5 flex-1">
+        {/* El menú hace scroll por dentro para que la sección inferior (usuario, cerrar sesión) siempre quede visible */}
+        <nav className="space-y-1.5 flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar">
           <button
             onClick={() => { setActiveView('dashboard'); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
             className={`flex items-center gap-3 w-full p-2.5 rounded-xl font-medium text-[15px] transition-all cursor-pointer ${
@@ -1622,7 +1623,7 @@ const App: React.FC = () => {
         </nav>
 
         {/* Sección inferior: info de usuario y cerrar sesión */}
-        <div className="pt-4 border-t border-slate-200/60 mt-auto space-y-1">
+        <div className="pt-4 border-t border-slate-200/60 mt-auto space-y-1 shrink-0">
           {/* Datos del usuario actual */}
           <div className="px-2.5 py-2 rounded-xl bg-slate-100/60">
             <div className="flex items-center gap-2.5">
