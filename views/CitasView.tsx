@@ -3,7 +3,7 @@ import {
   Plus, Filter, ChevronLeft, ChevronRight, X, Clock,
   MapPin, Eye, Sparkles, Calendar, GraduationCap, Search, Trash2,
   User, Phone, MessageCircle, XCircle, CalendarDays, TrendingUp,
-  CalendarClock, FileText, Save, Info, Mail
+  CalendarClock, FileText, Save, Info, Mail, Share2
 } from 'lucide-react';
 import {
   Appointment, Alumno, Apoderado, Filial, AppointmentStatus
@@ -1086,6 +1086,40 @@ export const CitasView: React.FC<CitasViewProps> = ({
                   <StatusBadge status={detailsAppointment.estado} />
                 </div>
               </div>
+              {/* Botón compartir */}
+              <button
+                onClick={() => {
+                  const alumnoD = alumnos.find(a => a.id === detailsAppointment.id_alumno);
+                  const apoderadoD = alumnoD ? apoderados.find(apo => apo.id === alumnoD.id_apoderado) : null;
+                  const isIndep = detailsAppointment.tipo_persona === 'independiente' || !alumnoD?.id_apoderado;
+                  const contactoNombre = isIndep ? detailsAppointment.alumno_nombre : (apoderadoD?.nombre_completo || detailsAppointment.alumno_nombre);
+                  const contactoTel = isIndep ? (alumnoD?.telefono || '—') : (apoderadoD?.telefono || '—');
+                  const [h, m] = detailsAppointment.hora_cita.split(':').map(Number);
+                  const period = h >= 12 ? 'PM' : 'AM';
+                  const h12 = h % 12 || 12;
+                  const horaFormateada = `${h12}:${m.toString().padStart(2, '0')} ${period}`;
+                  const estadoEmoji: Record<string, string> = {
+                    PENDIENTE: '🕐', AGENDADO: '📅', CONFIRMADO: '✅',
+                    ASISTIO: '🎓', FALTO: '❌', CONVERTIDO: '🏆', CANCELADO: '🚫',
+                  };
+                  const emoji = estadoEmoji[detailsAppointment.estado] ?? '📋';
+                  const mensaje =
+                    `📋 *DETALLE DE CITA — EduTrack*\n\n` +
+                    `🎓 *Alumno:* ${detailsAppointment.alumno_nombre}\n` +
+                    `👤 *Contacto:* ${contactoNombre}\n` +
+                    `📞 *Teléfono:* ${contactoTel}\n` +
+                    `🏫 *Sede:* ${detailsAppointment.filial_nombre}\n` +
+                    `📅 *Fecha:* ${formatFriendlyDate(detailsAppointment.fecha_cita)}\n` +
+                    `⏰ *Hora:* ${horaFormateada}\n` +
+                    `${emoji} *Estado:* ${detailsAppointment.estado}` +
+                    (detailsAppointment.observaciones ? `\n\n📝 *Notas:* ${detailsAppointment.observaciones}` : '');
+                  window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
+                }}
+                title="Compartir por WhatsApp"
+                className="absolute top-4 left-4 p-2 hover:bg-emerald-100 rounded-full transition-colors text-slate-400 hover:text-emerald-600"
+              >
+                <Share2 size={20} />
+              </button>
               <button onClick={() => setIsDetailsModalOpen(false)} className="absolute top-4 right-4 p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
                 <X size={20} />
               </button>
@@ -1204,12 +1238,12 @@ export const CitasView: React.FC<CitasViewProps> = ({
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <TrendingUp size={16} className="text-emerald-600" /> Gestión de Estado
                 </h4>
-                <div className="flex items-center justify-between gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <div>
                     <p className="text-xs font-bold text-slate-500 mb-1">Estado Actual</p>
                     <StatusBadge status={detailsAppointment.estado} />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {isAlumnoExistenteCita(detailsAppointment) ? (
                       <>
                         {detailsAppointment.estado !== AppointmentStatus.PENDIENTE && (
