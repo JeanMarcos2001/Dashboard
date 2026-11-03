@@ -365,7 +365,7 @@ export const HistoriasView: React.FC<HistoriasViewProps> = ({
                     <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
                         {fotoUrl ? (
-                          <img src={fotoUrl} alt={h.nombre_alumno} className="w-12 h-12 rounded-xl object-cover border border-slate-100 shadow-sm" />
+                          <img src={fotoUrl} alt={h.nombre_alumno} className="w-12 h-12 rounded-xl object-cover border border-slate-100 shadow-sm" loading="lazy" decoding="async" />
                         ) : (
                           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-300"><ImageIcon size={20} /></div>
                         )}

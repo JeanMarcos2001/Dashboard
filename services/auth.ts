@@ -1,4 +1,4 @@
-import { supabase } from '@/config/supabase';
+import { supabase, supabaseAdmin } from '@/config/supabase';
 import type { PerfilUsuario } from '@/types';
 
 // ─── Sesión ───────────────────────────────────────────────────────────────────
@@ -52,13 +52,34 @@ export const crearUsuarioSede = async (
   idFilial: number,
   nombreDisplay: string
 ): Promise<{ error: any }> => {
-  const { error } = await supabase.rpc('crear_usuario_sede', {
-    p_email: email,
-    p_password: password,
-    p_id_filial: idFilial,
-    p_nombre_display: nombreDisplay,
+  if (!supabaseAdmin) {
+    return { error: { message: 'Service role key no configurado. Agrega VITE_SUPABASE_SERVICE_ROLE_KEY al .env' } };
+  }
+
+  // 1. Crear en Supabase Auth vía GoTrue (aparece en el panel de Authentication)
+  const { data, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { nombre_display: nombreDisplay },
   });
-  return { error };
+  if (authError) return { error: authError };
+
+  const userId = data.user?.id;
+  if (!userId) return { error: { message: 'No se obtuvo el ID del nuevo usuario.' } };
+
+  // 2. Crear perfil en perfiles_usuario
+  const { error: perfilError } = await supabase
+    .from('perfiles_usuario')
+    .insert({ id: userId, rol: 'sede', id_filial: idFilial, nombre_display: nombreDisplay, activo: true });
+
+  if (perfilError) {
+    // Revertir: eliminar el usuario de auth si el perfil falló
+    await supabaseAdmin.auth.admin.deleteUser(userId);
+    return { error: perfilError };
+  }
+
+  return { error: null };
 };
 
 /**

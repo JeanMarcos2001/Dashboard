@@ -2,17 +2,14 @@ import React, { useState } from 'react';
 import { GraduationCap, Mail, Lock, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface LoginViewProps {
-  onSignIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  onSignIn: (email: string, password: string, rememberMe: boolean) => Promise<{ error: string | null }>;
 }
 
-/**
- * Pantalla de inicio de sesión.
- * Renderizada por App cuando no hay sesión activa.
- */
 export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
   const [email, setEmail]         = useState('');
   const [password, setPassword]   = useState('');
   const [showPass, setShowPass]   = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
@@ -21,10 +18,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
     setError(null);
     setLoading(true);
 
-    const { error: errMsg } = await onSignIn(email.trim(), password);
+    const { error: errMsg } = await onSignIn(email.trim(), password, rememberMe);
 
     if (errMsg) {
-      // Traducir mensajes de Supabase al español
       if (errMsg.toLowerCase().includes('invalid login credentials')) {
         setError('Correo o contraseña incorrectos.');
       } else if (errMsg.toLowerCase().includes('email not confirmed')) {
@@ -32,9 +28,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
       } else {
         setError(errMsg);
       }
-      setLoading(false);
     }
-    // Si no hay error, onAuthStateChange en useAuth actualiza la sesión automáticamente
+    // Siempre liberar el botón — si el login fue exitoso el componente se desmontará solo
+    setLoading(false);
   };
 
   return (
@@ -127,6 +123,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
                 </button>
               </div>
             </div>
+
+            {/* Mantener sesión */}
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-sm text-slate-500">
+                Mantener sesión abierta
+                <span className="text-[11px] text-slate-400 ml-1">(48 h sin marcar)</span>
+              </span>
+            </label>
 
             {/* Mensaje de error */}
             {error && (

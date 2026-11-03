@@ -269,10 +269,10 @@ const App: React.FC = () => {
     onCancel?: () => void;
   } | null>(null);
 
-  // Fetch inicial de datos
+  // Fetch inicial de datos — solo cuando hay sesión activa
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    if (session && perfil) fetchAllData();
+  }, [session?.user?.id]);
 
   // Alumnos filtrados por sede y término de búsqueda predictiva
   const matchedAlumnos = useMemo(() => {
@@ -620,11 +620,11 @@ const App: React.FC = () => {
     const uploadImageIfNecessary = async (): Promise<string | null | undefined> => {
       if (!filialFile) return undefined;
       setUploadingFilial(true);
-      const fileExt = filialFile.name.split('.').pop();
+      const webpBlob = await convertToWebPBlob(filialFile);
       const safeName = data.nombre.toLowerCase().replace(/[^a-z0-9]/g, '_');
-      const fileName = `${safeName}_${Date.now()}.${fileExt}`;
+      const fileName = `${safeName}_${Date.now()}.webp`;
 
-      const { error: uploadError } = await uploadFilialFoto(fileName, filialFile);
+      const { error: uploadError } = await uploadFilialFoto(fileName, webpBlob);
 
       setUploadingFilial(false);
 
@@ -1454,8 +1454,7 @@ const App: React.FC = () => {
 
 
   // ─── Guard de autenticación ─────────────────────────────────────────────────
-  // Muestra loader mientras se verifica la sesión inicial
-  if (loadingAuth || loading) {
+  if (loadingAuth) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc]">
         <Loader />
@@ -1463,8 +1462,8 @@ const App: React.FC = () => {
     );
   }
 
-  // Sin sesión → pantalla de login
-  if (!session || !perfil) {
+  // Sin sesión, sin perfil cargado, o usuario desactivado → login
+  if (!session || !perfil || !perfil.activo) {
     return <LoginView onSignIn={signIn} />;
   }
 
@@ -1863,7 +1862,7 @@ const App: React.FC = () => {
           <UsuariosView filiales={filiales} />
         )}
 
-        {activeView === 'filiales' && (
+        {activeView === 'filiales' && esAdmin && (
           <FilialesView
             filiales={filiales}
             searchTerm={searchTerm}
@@ -1905,7 +1904,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {activeView === 'historias' && (
+        {activeView === 'historias' && esAdmin && (
           <HistoriasView
             historias={historias}
             coloresCorporativos={coloresCorporativos}
@@ -1948,7 +1947,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {activeView === 'carrusel02' && (
+        {activeView === 'carrusel02' && esAdmin && (
           <CarruselView
             carrusel02={carrusel02}
             getCarrusel02Url={getCarrusel02Url}
@@ -1982,7 +1981,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {activeView === 'reportes' && (
+        {activeView === 'reportes' && esAdmin && (
           <ReportesView
             appointments={appointments}
             alumnos={alumnos}
