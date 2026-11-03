@@ -34,27 +34,36 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] px-4">
-      {/* Fondo decorativo sutil */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.07) 0%, transparent 70%)',
-        }}
-      />
+    <div className="min-h-screen flex bg-white p-4 lg:p-6 gap-6">
+      {/* Panel de imagen (solo escritorio) */}
+      <aside className="hidden lg:block lg:w-[48%] relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-800">
+        <img
+          src="/login_art.webp"
+          alt=""
+          className="absolute -top-2 left-0 w-full h-[calc(100%+0.5rem)] object-cover"
+        />
+      </aside>
+
+      <div className="flex-1 flex items-center justify-center relative px-2">
+        {/* Fondo decorativo sutil */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 60% 40% at 100% 0%, rgba(16,185,129,0.10) 0%, transparent 70%)',
+          }}
+        />
 
       <div className="w-full max-w-sm relative z-10">
-        {/* Tarjeta principal */}
-        <div className="bg-white rounded-3xl border border-slate-200/70 shadow-[0_8px_40px_rgba(0,0,0,0.06)] p-8">
+        <div className="p-2 sm:p-8">
 
           {/* Logo / Branding */}
           <div className="flex flex-col items-center mb-8">
-            <div className="bg-emerald-50 border border-emerald-100/60 text-emerald-600 p-4 rounded-2xl mb-4 shadow-sm">
-              <GraduationCap size={28} />
+            <div className="w-16 h-16 rounded-full gradient-brand flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-700/40">
+              <GraduationCap size={30} className="text-white" fill="white" />
             </div>
             <h1 className="text-xl font-bold text-slate-800 tracking-tight leading-none mb-1">
-              EduTrack
+              Dashboard Web
             </h1>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
               Sistema de Gestión Educativa
@@ -81,7 +90,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@edutrack.com"
+                  placeholder="usuario@ejemplo.com"
                   required
                   autoComplete="username"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
@@ -125,18 +134,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
             </div>
 
             {/* Mantener sesión */}
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-              />
-              <span className="text-sm text-slate-500">
-                Mantener sesión abierta
-                <span className="text-[11px] text-slate-400 ml-1">(48 h sin marcar)</span>
-              </span>
-            </label>
+            <div className="flex items-center gap-3 select-none">
+              <div className="switch-5">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                />
+                <label htmlFor="remember-me" aria-label="Mantener sesión abierta" />
+              </div>
+              <label htmlFor="remember-me" className="cursor-pointer text-[13px] font-semibold text-slate-600 leading-tight">
+                Mantener sesión iniciada
+              </label>
+            </div>
 
             {/* Mensaje de error */}
             {error && (
@@ -150,7 +161,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-emerald-600 text-white font-semibold rounded-xl shadow-md shadow-emerald-100/50 hover:bg-emerald-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+              className="w-full py-2.5 gradient-brand text-white font-semibold rounded-xl shadow-md shadow-emerald-600/25 hover:shadow-lg hover:shadow-emerald-700/35 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
               {loading ? (
                 <>
@@ -169,8 +180,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignIn }) => {
 
         {/* Pie de página */}
         <p className="text-center text-[11px] text-slate-400 mt-6">
-          © {new Date().getFullYear()} EduTrack — Acceso restringido al personal autorizado
+          © {new Date().getFullYear()} Dashboard Web
         </p>
+      </div>
       </div>
     </div>
   );
